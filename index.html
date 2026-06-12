@@ -80,9 +80,11 @@ canvas { display:block; }
 </div>
 
 <script>
-const T   = 36;
-const MC  = 72, MR = 48;
+// ── Config ────────────────────────────────────────────────────────────────────
+const T   = 36;          // tile size px
+const MC  = 72, MR = 48; // map cols / rows  (big city)
 
+// ── Jobs ──────────────────────────────────────────────────────────────────────
 const JOBS = [
   { name:"Police Officer", color:"#2563EB", shirtHex:"#1d4ed8", isPolice:true,
     desc:"Patrol the city, arrest robbers, respond to active heists. Pick up your service weapon at the Station." },
@@ -102,6 +104,7 @@ const JOBS = [
     desc:"Chase breaking news: crimes, fires, interviews. Publish before deadline." },
 ];
 
+// ── Building defs ─────────────────────────────────────────────────────────────
 const BDEFS = [
   { id:"bank",     label:"BANK",       face:"#78716c", trim:"#a8956a", robbable:true, loot:500, robTime:9  },
   { id:"store",    label:"Convenience", face:"#4b7c59", trim:"#6b9e75", robbable:true, loot:180, robTime:4  },
@@ -118,6 +121,7 @@ const BDEFS = [
   { id:"garage",   label:"Garage",     face:"#1c1c2e", trim:"#6366f1", garageshop:true, carCost:400 },
 ];
 
+// ── Palette helpers ───────────────────────────────────────────────────────────
 const SKIN_TONES = ["#f5cba7","#e8ac84","#c68642","#8d5524","#4a2912"];
 const HAIR_COLS  = ["#1a0a00","#3d1c02","#6b3a2a","#c8a96e","#e8e8e8","#111"];
 const SHIRT_COLS = ["#1e40af","#dc2626","#059669","#d97706","#7c3aed","#374151","#0e7490","#be185d"];
@@ -131,24 +135,30 @@ function darkenHex(hex, amt) {
 function rand(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+// ── State ─────────────────────────────────────────────────────────────────────
 let cvs, ctx, mcvs, mctx, job;
 let keys = {}, lastTs=0;
 let player, npcs=[], cars=[], bullets=[], particles=[], robberies=[];
 let map=[], buildings=[];
 let logLines=[], timeMin=480, day=1;
 
+// ── Map generation ────────────────────────────────────────────────────────────
 function buildMap() {
   map = Array.from({length:MR}, ()=>Array(MC).fill(0));
+
   const hRoads = [5,6, 14,15, 23,24, 33,34, 42,43];
   const vRoads = [4,5, 13,14, 22,23, 31,32, 40,41, 50,51, 61,62];
+
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++) {
     if(hRoads.includes(r)||vRoads.includes(c)) map[r][c]=1;
   }
+
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++) {
     if(map[r][c]===1) continue;
     const adj = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
     if(adj.some(([nr,nc])=>nr>=0&&nr<MR&&nc>=0&&nc<MC&&map[nr][nc]===1)) map[r][c]=3;
   }
+
   buildings = [];
   const bSlots = [
     {x:0,y:0,w:3,h:4},{x:6,y:0,w:6,h:4},{x:15,y:0,w:6,h:4},{x:24,y:0,w:6,h:4},{x:33,y:0,w:6,h:4},{x:43,y:0,w:6,h:4},{x:52,y:0,w:8,h:4},
@@ -157,6 +167,7 @@ function buildMap() {
     {x:0,y:25,w:3,h:7},{x:6,y:25,w:6,h:7},{x:15,y:25,w:6,h:7},{x:24,y:25,w:6,h:7},{x:33,y:25,w:6,h:7},{x:43,y:25,w:6,h:7},{x:52,y:25,w:8,h:7},
     {x:0,y:35,w:3,h:6},{x:6,y:35,w:6,h:6},{x:15,y:35,w:6,h:6},{x:24,y:35,w:6,h:6},{x:33,y:35,w:6,h:6},{x:43,y:35,w:6,h:6},{x:52,y:35,w:8,h:6},
   ];
+
   BDEFS.forEach((b,i) => {
     const s = bSlots[i % bSlots.length];
     buildings.push({...b,...s});
@@ -175,6 +186,7 @@ function randRoadPos() {
   return pick(tiles);
 }
 
+// ── NPC factories ─────────────────────────────────────────────────────────────
 function makeHumanAppearance() {
   return { skin:pick(SKIN_TONES), hair:pick(HAIR_COLS), shirt:pick(SHIRT_COLS), pants:pick(["#1e293b","#374151","#292524","#1c1917"]) };
 }
@@ -198,7 +210,7 @@ function spawnRobberNPC(x,y) {
 }
 
 function spawnPed(x,y) {
-  const pts=[]; for(let i=0;i<4;i++) pts.push(randRoadPos());
+  const pts=[]; for(let i=0;i<4;i++) { const p=randRoadPos(); pts.push(p); }
   return { kind:"ped", x,y, px:x*T+T/2, py:y*T+T/2,
     state:"walk", patrolPts:pts, patrolIdx:0, moveTimer:0, walkPhase:Math.random()*6,
     app:makeHumanAppearance()
@@ -209,12 +221,15 @@ function spawnCar(x,y) {
   const isH = [5,14,23,33,42].some(r=>Math.abs(y-r)<=1);
   const pts=[]; for(let i=0;i<6;i++) pts.push(randRoadPos());
   return { kind:"car", x,y, px:x*T+T/2, py:y*T+T/2,
-    targetPts:pts, ptIdx:0, color:pick(CAR_COLS),
+    targetPts:pts, ptIdx:0,
+    color:pick(CAR_COLS), color2:pick(CAR_COLS),
     angle:isH?0:Math.PI/2, speed:0.08+Math.random()*0.04,
-    moveTimer:0, w:12, l:20
+    moveTimer:0, horn:false,
+    w:12, l:20
   };
 }
 
+// ── Task text ─────────────────────────────────────────────────────────────────
 const TASK_TEXT = {
   "Police Officer":["🚨 Crime reported near market","🚗 Speeding vehicle on 5th Ave","🔎 Suspicious activity at hotel","👊 Assault near the diner","📞 Noise complaint downtown","🏦 Bank alarm triggered","🏪 Store robbery in progress"],
   "Robber":        ["🏦 Scope the bank entrance","🏪 Hit the corner store","💎 Jewelry smash-and-grab","🔫 Resupply at gun shop","🚗 Steal getaway vehicle","👁 Shadow the patrol route"],
@@ -231,10 +246,12 @@ function makeTask() {
   return { text:pick(pool), reward:rand(80,220), ttl:rand(60,120), done:false };
 }
 
+// ── Log / particles ───────────────────────────────────────────────────────────
 function log(msg){ logLines.unshift(msg); if(logLines.length>6)logLines.pop(); renderLog(); }
 function renderLog(){ document.getElementById("logLines").innerHTML=logLines.slice(0,5).map(l=>`<div>${l}</div>`).join(""); }
 function particle(x,y,text,col="#FFD700"){ particles.push({x,y,text,col,life:1.6,vy:-26}); }
 
+// ── Init ──────────────────────────────────────────────────────────────────────
 function startGame() {
   document.getElementById("splash").style.display="none";
   buildMap();
@@ -246,11 +263,13 @@ function startGame() {
   };
   npcs=[]; cars=[]; bullets=[]; particles=[]; robberies=[]; logLines=[];
   timeMin=480; day=1; lastTs=0;
+
   const st=buildings.find(b=>b.policeSpawn);
   for(let i=0;i<4;i++){ const p=st?{x:st.x+i%st.w,y:st.y}:randRoadPos(); npcs.push(spawnCop(p.x,p.y)); }
   for(let i=0;i<3;i++){ const p=randRoadPos(); npcs.push(spawnRobberNPC(p.x,p.y)); }
   for(let i=0;i<14;i++){ const p=randRoadPos(); npcs.push(spawnPed(p.x,p.y)); }
   for(let i=0;i<18;i++){ const p=randRoadPos(); cars.push(spawnCar(p.x,p.y)); }
+
   player.tasks=[makeTask(),makeTask()];
   log(`Shift started — you're a ${job.name}.`);
   if(job.isPolice)  log("Tip: walk up to a robber and press E to arrest.");
@@ -259,8 +278,10 @@ function startGame() {
   requestAnimationFrame(loop);
 }
 
+// ── Loop ──────────────────────────────────────────────────────────────────────
 function loop(ts){ const dt=Math.min((ts-lastTs)/1000,.1); lastTs=ts; update(dt); draw(); requestAnimationFrame(loop); }
 
+// ── Movement ──────────────────────────────────────────────────────────────────
 function tryStep(ent,dx,dy){
   const nx=ent.x+dx, ny=ent.y+dy;
   if(!canWalk(nx,ny)) return false;
@@ -281,6 +302,7 @@ function smoothPos(ent,dt,spd=14){ ent.px+=(ent.x*T+T/2-ent.px)*Math.min(dt*spd,
 function dist2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
 function nearBld(ent,b,r=2){ return Math.abs(ent.x-(b.x+b.w/2))<b.w/2+r && Math.abs(ent.y-(b.y+b.h/2))<b.h/2+r; }
 
+// ── Update ────────────────────────────────────────────────────────────────────
 function update(dt){
   timeMin+=dt*3; if(timeMin>=1440){timeMin=480;day++;log(`Day ${day} — new shift begins.`);}
   updatePlayer(dt); updateNPCs(dt); updateCars(dt); updateBullets(dt); updateRobberies(dt);
@@ -292,22 +314,26 @@ function update(dt){
 
 function updatePlayer(dt){
   player.icd-=dt;
+
   if(player.inCar){
+    // ── Car driving mode ───────────────────────────────────────────────────
     const car=player.inCar;
     let fwd=0, turn=0;
     if(keys.ArrowUp  ||keys.w||keys.W) fwd= 1;
     if(keys.ArrowDown||keys.s||keys.S) fwd=-1;
     if(keys.ArrowLeft||keys.a||keys.A) turn=-1;
     if(keys.ArrowRight||keys.d||keys.D) turn= 1;
-    if(fwd!==0) car.angle+=turn*2*dt;
-    car.px+=Math.cos(car.angle)*fwd*120*dt;
-    car.py+=Math.sin(car.angle)*fwd*120*dt;
+    const carSpeed=120; const turnRate=2;
+    if(fwd!==0) car.angle+=turn*turnRate*dt;
+    car.px+=Math.cos(car.angle)*fwd*carSpeed*dt;
+    car.py+=Math.sin(car.angle)*fwd*carSpeed*dt;
     car.px=Math.max(car.l,Math.min(MC*T-car.l,car.px));
     car.py=Math.max(car.l,Math.min(MR*T-car.l,car.py));
     player.px=car.px; player.py=car.py;
     player.x=Math.round(car.px/T); player.y=Math.round(car.py/T);
     car.x=player.x; car.y=player.y;
   } else {
+    // ── On-foot movement ───────────────────────────────────────────────────
     player.moveTimer-=dt;
     let moved=false;
     if(player.moveTimer<=0){
@@ -321,18 +347,23 @@ function updatePlayer(dt){
     if(moved) player.walkPhase+=0.4;
     smoothPos(player,dt,16);
   }
+
   if((keys.e||keys.E||keys[" "])&&player.icd<=0){ keys.e=keys.E=keys[" "]=false; interact(); player.icd=0.55; }
   if((keys.f||keys.F)&&player.icd<=0){ keys.f=keys.F=false; fireWeapon(); player.icd=0.4; }
-  const sight=player.inCar?(player.wLevel>0?10:8):6;
-  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<sight){c.state="chase";c.target=player;}});
+
+  // wanted pursuit — cops see further when player is in a car
+  const copSightRange=player.inCar?(player.wLevel>0?10:8):6;
+  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<copSightRange){c.state="chase";c.target=player;}});
   npcs.filter(n=>n.kind==="cop"&&n.state==="chase"&&n.target===player).forEach(c=>{
-    if(dist2(c,player)<1.5&&!player.armed){ const fine=Math.floor(player.money*.4); player.money=Math.max(0,player.money-fine); player.wLevel=0; player.armed=false; player.inCar=null; c.state="patrol"; c.target=null; log(`Arrested! Fined $${fine}.`); particle(player.px,player.py,"BUSTED","#ef4444"); }
+    if(dist2(c,player)<1.5&&!player.armed){ const fine=Math.floor(player.money*.4); player.money=Math.max(0,player.money-fine); player.wLevel=0; player.armed=false; c.state="patrol"; c.target=null; log(`Arrested! Fined $${fine}.`); particle(player.px,player.py,"BUSTED","#ef4444"); }
   });
+  // hospital heal
   const h=buildings.find(b=>b.healspot);
   if(h&&nearBld(player,h,2)&&player.hp<100&&player.money>0){ player.hp=Math.min(100,player.hp+dt*18); player.money=Math.max(0,player.money-dt*8); }
 }
 
 function interact(){
+  // ── Car enter / exit ───────────────────────────────────────────────────
   if(player.inCar){
     const car=player.inCar;
     const pts=[]; for(let i=0;i<6;i++) pts.push(randRoadPos());
@@ -411,6 +442,7 @@ function updateCars(dt){
   for(const c of cars){
     const pt=c.targetPts[c.ptIdx]; stepToward(c,pt.x,pt.y,c.speed);
     if(c.x===pt.x&&c.y===pt.y) c.ptIdx=(c.ptIdx+1)%c.targetPts.length;
+    // compute angle from movement direction
     const dx=pt.x-c.x, dy=pt.y-c.y;
     if(dx||dy) c.angle=Math.atan2(dy*T,dx*T);
     smoothPos(c,dt,8);
@@ -452,6 +484,7 @@ function updateRobberies(dt){
 
 function respawn(){ const p=randRoadPos(); player.x=p.x;player.y=p.y;player.px=p.x*T+T/2;player.py=p.y*T+T/2; player.hp=100;player.armed=false;player.wLevel=0; const fine=Math.floor(player.money*.45); player.money=Math.max(0,player.money-fine); log(`Respawned at hospital. Lost $${fine}.`); }
 
+// ── HUD ───────────────────────────────────────────────────────────────────────
 function updateHUD(){
   const h=String(Math.floor(timeMin/60)).padStart(2,"0"), m=String(Math.floor(timeMin%60)).padStart(2,"0");
   document.getElementById("sMoney").textContent=player.money;
@@ -467,8 +500,10 @@ function updateHUD(){
   const rp=robberies.find(r=>r.isPlayer); if(rp){ const b=buildings[rp.bi]; document.getElementById("taskList").innerHTML+=`<div class="ti" style="color:#fbbf24">Robbing ${b.label}: ${Math.round(rp.timer/rp.total*100)}%</div>`; }
 }
 
+// ── Rendering ─────────────────────────────────────────────────────────────────
 function draw(){
-  ctx.clearRect(0,0,cvs.width,cvs.height);
+  // olive green background
+  ctx.fillStyle="#5c7a3e"; ctx.fillRect(0,0,cvs.width,cvs.height);
   const ox=cvs.width/2-player.px, oy=cvs.height/2-player.py;
   ctx.save(); ctx.translate(ox,oy);
   drawTerrain(); drawBuildings(); drawCars(); drawNPCs(); drawPlayer(); drawBullets(); drawParticles();
@@ -477,49 +512,85 @@ function draw(){
 }
 
 function drawTerrain(){
-  ctx.fillStyle="#1f2d1f"; ctx.fillRect(0,0,MC*T,MR*T);
+  // base ground — olive green
+  ctx.fillStyle="#5c7a3e"; ctx.fillRect(0,0,MC*T,MR*T);
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++){
     const t=map[r][c]; const x=c*T, y=r*T;
     if(t===1){
-      ctx.fillStyle="#2a2e30"; ctx.fillRect(x,y,T,T);
-      ctx.fillStyle="rgba(255,255,255,0.015)"; if((r+c)%2===0) ctx.fillRect(x,y,T,T);
+      // asphalt road
+      ctx.fillStyle="#3d3d3d"; ctx.fillRect(x,y,T,T);
       const horiz=isRoadTile(c-1,r)||isRoadTile(c+1,r);
       const vert =isRoadTile(c,r-1)||isRoadTile(c,r+1);
-      ctx.strokeStyle="rgba(255,255,255,0.25)"; ctx.lineWidth=1; ctx.setLineDash([6,10]);
-      if(horiz&&!vert){ ctx.beginPath();ctx.moveTo(x,y+T/2);ctx.lineTo(x+T,y+T/2);ctx.stroke(); }
-      if(vert&&!horiz){ ctx.beginPath();ctx.moveTo(x+T/2,y);ctx.lineTo(x+T/2,y+T);ctx.stroke(); }
+      if(horiz&&vert){
+        // intersection — plain asphalt, no markings
+      } else if(horiz){
+        // horizontal road: yellow dashed center line
+        ctx.strokeStyle="#e8d44d"; ctx.lineWidth=1.5; ctx.setLineDash([8,8]);
+        ctx.beginPath(); ctx.moveTo(x,y+T/2); ctx.lineTo(x+T,y+T/2); ctx.stroke();
+        ctx.setLineDash([]);
+        // white edge lines
+        ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x,y+2); ctx.lineTo(x+T,y+2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x,y+T-2); ctx.lineTo(x+T,y+T-2); ctx.stroke();
+      } else if(vert){
+        // vertical road: yellow dashed center line
+        ctx.strokeStyle="#e8d44d"; ctx.lineWidth=1.5; ctx.setLineDash([8,8]);
+        ctx.beginPath(); ctx.moveTo(x+T/2,y); ctx.lineTo(x+T/2,y+T); ctx.stroke();
+        ctx.setLineDash([]);
+        // white edge lines
+        ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x+2,y); ctx.lineTo(x+2,y+T); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+T-2,y); ctx.lineTo(x+T-2,y+T); ctx.stroke();
+      }
       ctx.setLineDash([]);
-      if(horiz&&vert){ ctx.fillStyle="rgba(255,255,255,0.06)"; ctx.fillRect(x+2,y+2,T-4,T-4); }
     } else if(t===3){
-      ctx.fillStyle="#3a3f40"; ctx.fillRect(x,y,T,T);
-      ctx.fillStyle="rgba(255,255,255,0.04)"; ctx.fillRect(x+2,y+2,T-4,T-4);
-      ctx.strokeStyle="rgba(200,200,200,0.18)"; ctx.lineWidth=1; ctx.setLineDash([]);
-      ctx.strokeRect(x,y,T,T);
-    } else { ctx.fillStyle="#22312a"; ctx.fillRect(x,y,T,T); }
+      // sidewalk — warm light gray
+      ctx.fillStyle="#a09880"; ctx.fillRect(x,y,T,T);
+      ctx.strokeStyle="rgba(0,0,0,0.15)"; ctx.lineWidth=1; ctx.setLineDash([]);
+      ctx.strokeRect(x+0.5,y+0.5,T-1,T-1);
+      // crosswalk stripes where sidewalk meets road
+      const adjRoad=(dr,dc)=>{ const nr=r+dr,nc=c+dc; return nr>=0&&nr<MR&&nc>=0&&nc<MC&&map[nr][nc]===1; };
+      const roadN=adjRoad(-1,0),roadS=adjRoad(1,0),roadW=adjRoad(0,-1),roadE=adjRoad(0,1);
+      if(roadN||roadS||roadW||roadE){
+        ctx.fillStyle="rgba(255,255,255,0.45)";
+        if(roadN){ for(let i=0;i<4;i++) ctx.fillRect(x+i*9+1,y,7,4); }
+        if(roadS){ for(let i=0;i<4;i++) ctx.fillRect(x+i*9+1,y+T-4,7,4); }
+        if(roadW){ for(let i=0;i<4;i++) ctx.fillRect(x,y+i*9+1,4,7); }
+        if(roadE){ for(let i=0;i<4;i++) ctx.fillRect(x+T-4,y+i*9+1,4,7); }
+      }
+    } else if(t===0){
+      // grass — base color already filled, add subtle variation
+      if((r+c)%3===0){ ctx.fillStyle="rgba(0,0,0,0.07)"; ctx.fillRect(x,y,T,T); }
+    }
   }
 }
 
 function drawBuildings(){
+  const ROOF_PALETTE={bank:"#8B7355",store:"#6B8E6B",jewelry:"#7B6B9E",gunshop:"#8B4040",station:"#4060A0",hospital:"#E0E0E0",diner:"#A07840",hotel:"#405858",school:"#806080",park:"#3a6e30",mall:"#607090",church:"#807060",garage:"#404858"};
   for(const b of buildings){
     const x=b.x*T, y=b.y*T, w=b.w*T, h=b.h*T;
-    ctx.fillStyle="rgba(0,0,0,0.35)"; ctx.fillRect(x+5,y+5,w,h);
-    ctx.fillStyle=b.face; ctx.fillRect(x,y,w,h);
-    ctx.fillStyle=b.trim; ctx.fillRect(x,y,w,4); ctx.fillRect(x,y+h-4,w,4);
-    ctx.fillStyle="rgba(200,220,255,0.18)";
-    for(let row=1;row<b.h;row++) for(let col=0;col<b.w;col++){
-      const wx=x+col*T+8, wy=y+row*T-10;
-      ctx.fillRect(wx,wy,8,7);
-      if((b.x*7+b.y*3+row*11+col*5)%7<4){ ctx.fillStyle="rgba(255,230,120,0.55)"; ctx.fillRect(wx,wy,8,7); ctx.fillStyle="rgba(200,220,255,0.18)"; }
-    }
-    ctx.fillStyle=darkenHex(b.face,30); ctx.fillRect(x+Math.floor(w/2)-6,y+h-14,12,14);
-    ctx.fillStyle="rgba(255,255,255,0.85)"; ctx.font="bold 9px 'Segoe UI',sans-serif"; ctx.textAlign="center";
-    ctx.fillText(b.label,x+w/2,y+h/2+3);
-    ctx.font="13px serif";
+    // drop shadow
+    ctx.fillStyle="rgba(0,0,0,0.4)"; ctx.fillRect(x+4,y+4,w,h);
+    // roof
+    const roofCol=ROOF_PALETTE[b.id]||b.face;
+    ctx.fillStyle=roofCol; ctx.fillRect(x,y,w,h);
+    // roof ridge lines
+    ctx.strokeStyle="rgba(0,0,0,0.18)"; ctx.lineWidth=1; ctx.setLineDash([]);
+    for(let i=1;i<b.h;i++){ ctx.beginPath(); ctx.moveTo(x,y+i*T); ctx.lineTo(x+w,y+i*T); ctx.stroke(); }
+    // dark border
+    ctx.strokeStyle="rgba(0,0,0,0.5)"; ctx.lineWidth=2;
+    ctx.strokeRect(x+1,y+1,w-2,h-2);
+    // building label — top-left corner, small
+    ctx.fillStyle="rgba(255,255,255,0.9)"; ctx.font="bold 8px 'Segoe UI',sans-serif"; ctx.textAlign="left";
+    ctx.fillText(b.label,x+4,y+11);
+    // icons
+    ctx.font="13px serif"; ctx.textAlign="center";
     if(b.gunshop)    ctx.fillText("🔫",x+w/2,y-5);
     if(b.policeSpawn) ctx.fillText("🚔",x+w/2,y-5);
     if(b.healspot)   ctx.fillText("🏥",x+w/2,y-5);
     if(b.robbable)   ctx.fillText("💰",x+w-10,y+8);
     if(b.garageshop) ctx.fillText("🚗",x+w/2,y-5);
+    // robbery progress bar
     const rob=robberies.find(r=>buildings[r.bi]===b);
     if(rob){ const pct=rob.timer/rob.total; ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(x+4,y-14,w-8,7); ctx.fillStyle="#fbbf24"; ctx.fillRect(x+4,y-14,(w-8)*pct,7); }
     ctx.setLineDash([]);
@@ -528,32 +599,40 @@ function drawBuildings(){
 
 function drawHuman(px,py,app,wp,scale=1,badge=null){
   ctx.save(); ctx.translate(px,py); ctx.scale(scale,scale);
-  const leg=Math.sin(wp)*4;
-  ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(1,13,9,4,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=app.pants; ctx.beginPath(); ctx.ellipse(-4,11+leg,3,6,0.15,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(4,11-leg,3,6,-0.15,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=app.shirt; ctx.beginPath(); ctx.ellipse(0,2,9,10,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(-11,Math.sin(wp)*3,3,5,0.4,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(11,-Math.sin(wp)*3,3,5,-0.4,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=app.skin; ctx.beginPath(); ctx.arc(0,-12,9,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=app.hair; ctx.beginPath(); ctx.arc(0,-14,9,Math.PI,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(-8,-13,4,Math.PI*1.2,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8,-13,4,Math.PI,Math.PI*1.8); ctx.fill();
-  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(-3,-12,1.4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-12,1.4,0,Math.PI*2); ctx.fill();
-  if(badge){ ctx.fillStyle=badge; ctx.beginPath(); ctx.arc(0,-22,5,0,Math.PI*2); ctx.fill(); ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.stroke(); }
+  const sway=Math.sin(wp)*1;
+  // shadow
+  ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(sway+1,3,6,4,0,0,Math.PI*2); ctx.fill();
+  // body (shirt)
+  ctx.fillStyle=app.shirt; ctx.beginPath(); ctx.ellipse(sway,2,5,7,0,0,Math.PI*2); ctx.fill();
+  // head
+  ctx.fillStyle=app.skin; ctx.beginPath(); ctx.arc(sway,-3,4.5,0,Math.PI*2); ctx.fill();
+  // hair (top arc)
+  ctx.fillStyle=app.hair; ctx.beginPath(); ctx.arc(sway,-3,4.5,Math.PI,Math.PI*2); ctx.fill();
+  // badge dot above head
+  if(badge){ ctx.fillStyle=badge; ctx.beginPath(); ctx.arc(sway,-10,3,0,Math.PI*2); ctx.fill(); ctx.strokeStyle="#000"; ctx.lineWidth=0.8; ctx.stroke(); }
   ctx.restore();
 }
 
 function drawCar(c){
   ctx.save(); ctx.translate(c.px,c.py); ctx.rotate(c.angle);
   const W=c.w||12, L=c.l||20;
+  // shadow
   ctx.fillStyle="rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(3,4,W+3,L+2,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=c.color; ctx.beginPath(); ctx.roundRect(-W,-L,W*2,L*2,4); ctx.fill();
-  ctx.fillStyle=darkenHex(c.color,40); ctx.beginPath(); ctx.roundRect(-W+4,-L+8,W*2-8,L*2-18,3); ctx.fill();
+  // body
+  ctx.fillStyle=c.color;
+  ctx.beginPath(); ctx.roundRect(-W,-L,W*2,L*2,4); ctx.fill();
+  // roof (slightly lighter center)
+  ctx.fillStyle=darkenHex(c.color,40);
+  ctx.beginPath(); ctx.roundRect(-W+4,-L+8,W*2-8,L*2-18,3); ctx.fill();
+  // windscreen
   ctx.fillStyle="rgba(150,200,240,0.55)"; ctx.fillRect(-W+4,-L+2,W*2-8,8);
+  // rear window
   ctx.fillStyle="rgba(150,200,240,0.35)"; ctx.fillRect(-W+4,L-12,W*2-8,8);
+  // wheel wells
   ctx.fillStyle="#111"; [[-W,-L+4],[W-3,-L+4],[-W,L-9],[W-3,L-9]].forEach(([wx,wy])=>ctx.fillRect(wx,wy,3,7));
+  // headlights
   ctx.fillStyle="#fffde0"; ctx.fillRect(-W+2,-L-1,5,3); ctx.fillRect(W-7,-L-1,5,3);
+  // taillights
   ctx.fillStyle="#cc0000"; ctx.fillRect(-W+2,L-2,5,3); ctx.fillRect(W-7,L-2,5,3);
   ctx.restore();
 }
@@ -564,14 +643,14 @@ function drawNPCs(){
   for(const n of npcs){
     if(n.kind==="cop"){
       drawHuman(n.px,n.py,n.app,n.walkPhase,1,"#2563eb");
-      if(n.state==="chase"){ ctx.save(); ctx.translate(n.px,n.py); ctx.fillStyle="rgba(220,30,30,0.85)"; ctx.font="bold 8px sans-serif"; ctx.textAlign="center"; ctx.fillText("CHASE",0,-34); ctx.restore(); }
+      if(n.state==="chase"){ ctx.save(); ctx.translate(n.px,n.py); ctx.fillStyle="rgba(220,30,30,0.85)"; ctx.font="bold 8px sans-serif"; ctx.textAlign="center"; ctx.fillText("CHASE",0,-18); ctx.restore(); }
     } else if(n.kind==="robber"){
       drawHuman(n.px,n.py,n.app,n.walkPhase,1,n.armed?"#ef4444":null);
-      if(n.state==="robbing"){ ctx.save(); ctx.translate(n.px,n.py); ctx.fillStyle="rgba(251,191,36,0.9)"; ctx.font="bold 8px sans-serif"; ctx.textAlign="center"; ctx.fillText("ROBBING",0,-34); ctx.restore(); }
+      if(n.state==="robbing"){ ctx.save(); ctx.translate(n.px,n.py); ctx.fillStyle="rgba(251,191,36,0.9)"; ctx.font="bold 8px sans-serif"; ctx.textAlign="center"; ctx.fillText("ROBBING",0,-18); ctx.restore(); }
     } else { drawHuman(n.px,n.py,n.app,n.walkPhase,0.88,null); }
     if((n.kind==="cop"||n.kind==="robber")&&n.hp<100){
-      ctx.fillStyle="#1f2937"; ctx.fillRect(n.px-14,n.py+16,28,4);
-      ctx.fillStyle=n.hp>60?"#22c55e":n.hp>30?"#f59e0b":"#ef4444"; ctx.fillRect(n.px-14,n.py+16,28*(n.hp/100),4);
+      ctx.fillStyle="#1f2937"; ctx.fillRect(n.px-12,n.py+10,24,4);
+      ctx.fillStyle=n.hp>60?"#22c55e":n.hp>30?"#f59e0b":"#ef4444"; ctx.fillRect(n.px-12,n.py+10,24*(n.hp/100),4);
     }
   }
 }
@@ -587,11 +666,13 @@ function drawPlayer(){
     if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-44); ctx.restore(); }
   } else {
     drawHuman(player.px,player.py,player.app,player.walkPhase,1.08,job.color);
-    if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-38); ctx.restore(); }
+    if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-22); ctx.restore(); }
   }
+  // interaction range hint
   ctx.strokeStyle="rgba(255,255,255,0.08)"; ctx.lineWidth=1; ctx.setLineDash([4,8]);
   ctx.beginPath(); ctx.arc(player.px,player.py,T*2.8,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
-  if(player.hp<100){ ctx.fillStyle="#111"; ctx.fillRect(player.px-16,player.py+22,32,5); ctx.fillStyle=player.hp>60?"#22c55e":player.hp>30?"#f59e0b":"#ef4444"; ctx.fillRect(player.px-16,player.py+22,32*(player.hp/100),5); }
+  // hp bar
+  if(player.hp<100){ ctx.fillStyle="#111"; ctx.fillRect(player.px-16,player.py+14,32,5); ctx.fillStyle=player.hp>60?"#22c55e":player.hp>30?"#f59e0b":"#ef4444"; ctx.fillRect(player.px-16,player.py+14,32*(player.hp/100),5); }
 }
 
 function drawBullets(){
@@ -611,20 +692,22 @@ function drawParticles(){
 
 function drawMinimap(){
   const mc=document.getElementById("minimap"); const mw=mc.width,mh=mc.height; const mx=mctx;
-  mx.clearRect(0,0,mw,mh); mx.fillStyle="#0a0f0a"; mx.fillRect(0,0,mw,mh);
+  mx.clearRect(0,0,mw,mh); mx.fillStyle="#3a5228"; mx.fillRect(0,0,mw,mh);
   const sx=mw/MC,sy=mh/MR;
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++){
     const t=map[r][c];
-    if(t===1){ mx.fillStyle="#3a4245"; mx.fillRect(c*sx,r*sy,sx,sy); }
-    else if(t===2){ mx.fillStyle="#1a2e1a"; mx.fillRect(c*sx,r*sy,sx,sy); }
+    if(t===1){ mx.fillStyle="#4a4a4a"; mx.fillRect(c*sx,r*sy,sx,sy); }
+    else if(t===2){ mx.fillStyle="#5a5040"; mx.fillRect(c*sx,r*sy,sx,sy); }
+    else if(t===3){ mx.fillStyle="#807060"; mx.fillRect(c*sx,r*sy,sx,sy); }
   }
-  for(const b of buildings){ mx.fillStyle=b.face; mx.fillRect(b.x*sx,b.y*sy,b.w*sx,b.h*sy); }
+  for(const b of buildings){ const rc=({bank:"#8B7355",store:"#6B8E6B",jewelry:"#7B6B9E",gunshop:"#8B4040",station:"#4060A0",hospital:"#E0E0E0",diner:"#A07840",hotel:"#405858",school:"#806080",park:"#3a6e30",mall:"#607090",church:"#807060",garage:"#404858"})[b.id]||b.face; mx.fillStyle=rc; mx.fillRect(b.x*sx,b.y*sy,b.w*sx,b.h*sy); }
   cars.forEach(c=>{ mx.fillStyle=c.color; mx.fillRect(c.x*sx,c.y*sy,sx+1,sy+1); });
   npcs.filter(n=>n.kind==="cop").forEach(n=>{ mx.fillStyle="#2563eb"; mx.beginPath();mx.arc(n.x*sx+sx/2,n.y*sy+sy/2,2,0,Math.PI*2);mx.fill(); });
   npcs.filter(n=>n.kind==="robber").forEach(n=>{ mx.fillStyle="#ef4444"; mx.beginPath();mx.arc(n.x*sx+sx/2,n.y*sy+sy/2,2,0,Math.PI*2);mx.fill(); });
   mx.fillStyle=job.color; mx.beginPath();mx.arc(player.x*sx+sx/2,player.y*sy+sy/2,3,0,Math.PI*2);mx.fill();
 }
 
+// ── Phone ─────────────────────────────────────────────────────────────────────
 function togglePhone(){
   if(!player||!player.phone) return;
   const ov=document.getElementById("phoneOverlay");
@@ -720,6 +803,7 @@ function fileStory(){
   togglePhone();
 }
 
+// ── Resize / Input ────────────────────────────────────────────────────────────
 function resize(){ cvs.width=window.innerWidth; cvs.height=window.innerHeight; }
 window.addEventListener("keydown",e=>{
   keys[e.key]=true;
@@ -729,6 +813,7 @@ window.addEventListener("keydown",e=>{
 window.addEventListener("keyup",e=>keys[e.key]=false);
 window.addEventListener("resize",resize);
 
+// ── Splash ────────────────────────────────────────────────────────────────────
 (function(){
   cvs=document.getElementById("c"); ctx=cvs.getContext("2d");
   mcvs=document.getElementById("minimap"); mctx=mcvs.getContext("2d");
