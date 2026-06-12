@@ -108,6 +108,7 @@ const BDEFS = [
   { id:"park",     label:"City Park",  face:"#14532d", trim:"#22c55e", isPark:true },
   { id:"mall",     label:"Mall",       face:"#1e3a5f", trim:"#60a5fa" },
   { id:"church",   label:"Church",     face:"#44403c", trim:"#d6d3d1" },
+  { id:"garage",   label:"Garage",     face:"#1c1c2e", trim:"#6366f1", garageshop:true, carCost:400 },
 ];
 
 // ── Palette helpers ───────────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ function startGame() {
   const sp=randRoadPos();
   player={ x:sp.x, y:sp.y, px:sp.x*T+T/2, py:sp.y*T+T/2,
     hp:100, money:0, rep:0, armed:false, wLevel:0, tasks:[],
-    icd:0, walkPhase:0, moveTimer:0,
+    icd:0, walkPhase:0, moveTimer:0, inCar:null,
     app:{ skin:pick(SKIN_TONES), hair:pick(HAIR_COLS), shirt:job.shirtHex, pants:"#1e293b" }
   };
   npcs=[]; cars=[]; bullets=[]; particles=[]; robberies=[]; logLines=[];
@@ -326,24 +327,50 @@ function update(dt){
 }
 
 function updatePlayer(dt){
-  player.moveTimer-=dt;
-  let moved=false;
-  if(player.moveTimer<=0){
-    let dx=0,dy=0;
-    if(keys.ArrowLeft||keys.a||keys.A)  dx=-1;
-    if(keys.ArrowRight||keys.d||keys.D) dx=1;
-    if(keys.ArrowUp||keys.w||keys.W)    dy=-1;
-    if(keys.ArrowDown||keys.s||keys.S)  dy=1;
-    if(dx||dy){ if(tryStep(player,dx,dy)){player.moveTimer=0.1;moved=true;} }
-  }
-  if(moved) player.walkPhase+=0.4;
-  smoothPos(player,dt,16);
   player.icd-=dt;
+
+  if(player.inCar){
+    // ── Car driving mode ───────────────────────────────────────────────────
+    const car=player.inCar;
+    let fwd=0, turn=0;
+    if(keys.ArrowUp  ||keys.w||keys.W) fwd= 1;
+    if(keys.ArrowDown||keys.s||keys.S) fwd=-1;
+    if(keys.ArrowLeft||keys.a||keys.A) turn=-1;
+    if(keys.ArrowRight||keys.d||keys.D) turn= 1;
+    const carSpeed=120; // px/s
+    const turnRate=2;   // rad/s
+    if(fwd!==0) car.angle+=turn*turnRate*dt;
+    car.px+=Math.cos(car.angle)*fwd*carSpeed*dt;
+    car.py+=Math.sin(car.angle)*fwd*carSpeed*dt;
+    // clamp to map
+    car.px=Math.max(car.l,Math.min(MC*T-car.l,car.px));
+    car.py=Math.max(car.l,Math.min(MR*T-car.l,car.py));
+    // sync player position to car
+    player.px=car.px; player.py=car.py;
+    player.x=Math.round(car.px/T); player.y=Math.round(car.py/T);
+    car.x=player.x; car.y=player.y;
+  } else {
+    // ── On-foot movement ───────────────────────────────────────────────────
+    player.moveTimer-=dt;
+    let moved=false;
+    if(player.moveTimer<=0){
+      let dx=0,dy=0;
+      if(keys.ArrowLeft||keys.a||keys.A)  dx=-1;
+      if(keys.ArrowRight||keys.d||keys.D) dx=1;
+      if(keys.ArrowUp||keys.w||keys.W)    dy=-1;
+      if(keys.ArrowDown||keys.s||keys.S)  dy=1;
+      if(dx||dy){ if(tryStep(player,dx,dy)){player.moveTimer=0.1;moved=true;} }
+    }
+    if(moved) player.walkPhase+=0.4;
+    smoothPos(player,dt,16);
+  }
+
   if((keys.e||keys.E||keys[" "])&&player.icd<=0){ keys.e=keys.E=keys[" "]=false; interact(); player.icd=0.55; }
   if((keys.f||keys.F)&&player.icd<=0){ keys.f=keys.F=false; fireWeapon(); player.icd=0.4; }
 
-  // wanted pursuit
-  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<6){c.state="chase";c.target=player;}});
+  // wanted pursuit — cops see further when player is in a car
+  const copSightRange=player.inCar?(player.wLevel>0?10:8):6;
+  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<copSightRange){c.state="chase";c.target=player;}});
   npcs.filter(n=>n.kind==="cop"&&n.state==="chase"&&n.target===player).forEach(c=>{
     if(dist2(c,player)<1.5&&!player.armed){ const fine=Math.floor(player.money*.4); player.money=Math.max(0,player.money-fine); player.wLevel=0; player.armed=false; c.state="patrol"; c.target=null; log(`Arrested! Fined $${fine}.`); particle(player.px,player.py,"BUSTED","#ef4444"); }
   });
@@ -353,6 +380,42 @@ function updatePlayer(dt){
 }
 
 function interact(){
+  // ── Car enter / exit ───────────────────────────────────────────────────
+  if(player.inCar){
+    // exit the car
+    const car=player.inCar;
+    const pts=[]; for(let i=0;i<6;i++) pts.push(randRoadPos());
+    car.targetPts=pts; car.ptIdx=0; car.speed=0.08+Math.random()*0.04;
+    cars.push(car);
+    player.x=car.x; player.y=car.y; player.px=car.px; player.py=car.py;
+    player.inCar=null;
+    log("Exited vehicle.");
+    return;
+  }
+  // jack a nearby NPC car
+  let nearCar=null, nearCarDist=999;
+  for(const c of cars){ const d=dist2(c,player); if(d<2&&d<nearCarDist){nearCarDist=d;nearCar=c;} }
+  if(nearCar){
+    const idx=cars.indexOf(nearCar); if(idx>=0) cars.splice(idx,1);
+    player.inCar=nearCar;
+    log("Jacked a car — press E to exit.");
+    if(job.isCriminal){ player.wLevel=Math.min(3,player.wLevel+1); log("Wanted level up for vehicle theft!"); }
+    return;
+  }
+  // garage — buy a car
+  const gar=buildings.find(b=>b.garageshop);
+  if(gar&&nearBld(player,gar)){
+    if(player.money>=gar.carCost){
+      player.money-=gar.carCost;
+      const nc=spawnCar(gar.x+Math.floor(gar.w/2),gar.y+gar.h);
+      player.inCar=nc;
+      log(`Bought a car for $${gar.carCost}. Drive with WASD, E to exit.`);
+      particle(player.px,player.py-20,`-$${gar.carCost}`,"#6366f1");
+    } else {
+      log(`Need $${gar.carCost} to buy a car.`);
+    }
+    return;
+  }
   // arrest robbers (police)
   if(job.isPolice){ for(const n of npcs){ if(n.kind==="robber"&&dist2(n,player)<2.5){ const earn=130+Math.floor(n.money); player.money+=earn; player.rep+=12; log(`Arrested robber — +$${earn}`); particle(player.px,player.py-20,`+$${earn}`,"#22c55e"); const p=randRoadPos(); Object.assign(n,spawnRobberNPC(p.x,p.y)); return; } } }
   // gun shop
@@ -469,6 +532,11 @@ function updateHUD(){
   document.getElementById("jobBadge").textContent=job.name;
   document.getElementById("jobBadge").style.borderColor=job.color;
   if(job.isCriminal){ const ss=["☆☆☆","★☆☆","★★☆","★★★"][player.wLevel]; document.getElementById("wStars").textContent=ss; document.getElementById("wanted").style.opacity=player.wLevel>0?"1":"0.4"; }
+  // driving indicator
+  let statsExtra = player.inCar ? ' &nbsp;🚗 <span style="color:#6366f1">Driving</span>' : '';
+  document.getElementById("sGun").textContent=player.armed?"Armed":"Unarmed";
+  const statsDiv=document.getElementById("stats");
+  statsDiv.children[1].innerHTML=`❤ <span id="sHP">${Math.ceil(player.hp)}</span>% &nbsp;🔫 <span id="sGun">${player.armed?"Armed":"Unarmed"}</span>${statsExtra}`;
   document.getElementById("taskList").innerHTML=player.tasks.slice(0,2).map(t=>{ const tc=t.ttl<20?"#ef4444":t.ttl<40?"#f59e0b":"#4ade80"; return `<div class="ti">${t.text}<br><span style="color:${tc};font-size:10px">⏱ ${Math.max(0,Math.ceil(t.ttl))}s  $${t.reward}</span></div>`; }).join("");
   const rp=robberies.find(r=>r.isPlayer); if(rp){ const b=buildings[rp.bi]; document.getElementById("taskList").innerHTML+=`<div class="ti" style="color:#fbbf24">Robbing ${b.label}: ${Math.round(rp.timer/rp.total*100)}%</div>`; }
 }
@@ -609,7 +677,7 @@ function drawCar(c){
   ctx.restore();
 }
 
-function drawCars(){ cars.forEach(c=>drawCar(c)); }
+function drawCars(){ cars.forEach(c=>{ if(player.inCar&&c===player.inCar) return; drawCar(c); }); }
 
 function drawNPCs(){
   for(const n of npcs){
@@ -631,8 +699,22 @@ function drawNPCs(){
 }
 
 function drawPlayer(){
-  drawHuman(player.px,player.py,player.app,player.walkPhase,1.08,job.color);
-  if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-38); ctx.restore(); }
+  if(player.inCar){
+    const car=player.inCar;
+    // draw the car at player position
+    const fakeCar={...car, px:player.px, py:player.py};
+    drawCar(fakeCar);
+    // draw small driver silhouette inside car
+    ctx.save(); ctx.translate(player.px,player.py); ctx.rotate(car.angle);
+    ctx.fillStyle=player.app.skin; ctx.beginPath(); ctx.arc(0,-4,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle=player.app.shirt; ctx.beginPath(); ctx.ellipse(0,2,4,6,0,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    // wanted stars above car
+    if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-44); ctx.restore(); }
+  } else {
+    drawHuman(player.px,player.py,player.app,player.walkPhase,1.08,job.color);
+    if(player.wLevel>0){ ctx.save(); ctx.translate(player.px,player.py); ctx.fillStyle="#fbbf24"; ctx.font="11px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(player.wLevel),0,-38); ctx.restore(); }
+  }
   // interaction range hint
   ctx.strokeStyle="rgba(255,255,255,0.08)"; ctx.lineWidth=1; ctx.setLineDash([4,8]);
   ctx.beginPath(); ctx.arc(player.px,player.py,T*2.8,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
