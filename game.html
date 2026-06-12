@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>City Spawn: Random Occupation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; }
+  #gameContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+  #canvas { border: 2px solid #333; cursor: crosshair; }
+  #hud { position: fixed; top: 10px; left: 10px; z-index: 10; }
+  #jobBadge { background: rgba(0,0,0,0.8); border: 2px solid #gold; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+  #stats { background: rgba(0,0,0,0.75); padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.8; }
+  #eventLog { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 11px; max-width: 280px; z-index: 10; }
+  #eventLog div { margin-bottom: 3px; opacity: 0.9; }
+  #controls { position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.75); padding: 10px; border-radius: 8px; font-size: 11px; line-height: 1.7; z-index: 10; }
+  #splash { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+  #splash h1 { font-size: 2.5em; color: #f0a500; margin-bottom: 10px; text-shadow: 0 0 20px #f0a500; }
+  #splash .sub { color: #aaa; font-size: 1em; margin-bottom: 30px; }
+  #splash .jobReveal { font-size: 1.8em; margin: 20px 0; padding: 16px 32px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 2px solid #555; transition: all 0.4s; }
+  #startBtn { background: #f0a500; color: #111; border: none; padding: 14px 40px; font-size: 1.1em; font-family: inherit; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 20px; }
+  #startBtn:hover { background: #ffc107; transform: scale(1.04); }
+  .taskIndicator { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px 14px; border-radius: 8px; font-size: 12px; z-index: 10; max-width: 240px; }
+  .taskIndicator .taskItem { padding: 4px 0; border-bottom: 1px solid #333; }
+  .taskIndicator .taskItem:last-child { border-bottom: none; }
+  #meterBar { width: 120px; height: 8px; background: #333; border-radius: 4px; display: inline-block; vertical-align: middle; }
+  #meterFill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+</style>
+</head>
+<body>
+<div id="gameContainer">
+  <canvas id="canvas"></canvas>
+</div>
+
+<div id="hud">
+  <div id="jobBadge">Loading...</div>
+  <div id="stats">
+    <div>💰 Money: $<span id="money">0</span></div>
+    <div>⭐ Rep: <span id="rep">0</span></div>
+    <div>❤️ Health: <span id="health">100</span>%</div>
+    <div>⏰ Day: <span id="day">1</span> | <span id="timeStr">08:00</span></div>
+  </div>
+</div>
+
+<div id="eventLog"><b>📋 Activity Log</b><div id="logEntries"></div></div>
+
+<div class="taskIndicator" id="taskPanel">
+  <b>🎯 Active Tasks</b>
+  <div id="taskList"></div>
+</div>
+
+<div id="controls">
+  <b>Controls</b><br>
+  WASD / Arrows: Move<br>
+  E / Space: Interact<br>
+  R: New shift<br>
+  Esc: Menu
+</div>
+
+<div id="splash">
+  <h1>City Spawn</h1>
+  <div class="sub">You wake up. You have a job. The city needs you.</div>
+  <div class="jobReveal" id="jobReveal">🎲 Rolling occupation...</div>
+  <div id="jobDesc" style="color:#aaa; font-size:0.9em; max-width:400px; text-align:center; margin-top:10px;"></div>
+  <button id="startBtn" onclick="startGame()">Start Shift →</button>
+</div>
+
+<script>
+const TILE = 40;
+const COLS = 28;
+const ROWS = 18;
+
+const JOBS = [
+  { name: "Police Officer", emoji: "👮", color: "#2196F3", tasks: ["patrol","arrest","ticket","investigate"], desc: "Protect the peace. Respond to crimes, issue tickets, and keep the streets safe." },
+  { name: "Firefighter", emoji: "🚒", color: "#F44336", tasks: ["extinguish","rescue","inspect","drill"], desc: "Fight fires, rescue trapped citizens, and inspect buildings for hazards." },
+  { name: "Paramedic / EMT", emoji: "🚑", color: "#4CAF50", tasks: ["treat","transport","revive","triage"], desc: "Respond to medical emergencies, stabilize patients, and race to the hospital." },
+  { name: "Chef", emoji: "👨‍🍳", color: "#FF9800", tasks: ["cook","deliver","source","manage"], desc: "Run a restaurant kitchen. Cook orders, manage ingredients, delight diners." },
+  { name: "Taxi Driver", emoji: "🚕", color: "#FFEB3B", tasks: ["pickup","dropoff","navigate","rate"], desc: "Drive passengers across the city. Speed matters, but so does safety." },
+  { name: "Construction Worker", emoji: "👷", color: "#795548", tasks: ["build","repair","haul","inspect"], desc: "Build the city brick by brick. Repair infrastructure and haul materials." },
+  { name: "Teacher", emoji: "📚", color: "#9C27B0", tasks: ["lecture","grade","mentor","meeting"], desc: "Educate the next generation. Give lectures, grade papers, and inspire students." },
+  { name: "Mechanic", emoji: "🔧", color: "#607D8B", tasks: ["diagnose","fix","tune","test"], desc: "Fix broken vehicles and machines. No car leaves your shop broken." },
+  { name: "Delivery Driver", emoji: "📦", color: "#00BCD4", tasks: ["load","deliver","sign","reroute"], desc: "Get packages where they need to go, fast. Mind the time windows." },
+  { name: "Doctor", emoji: "🩺", color: "#E91E63", tasks: ["examine","prescribe","operate","consult"], desc: "Run a clinic. Examine patients, prescribe treatments, perform minor procedures." },
+  { name: "Street Vendor", emoji: "🌮", color: "#8BC34A", tasks: ["prepare","sell","restock","advertise"], desc: "Run a food cart. Prepare snacks, sell to passersby, keep up with demand." },
+  { name: "Journalist", emoji: "📰", color: "#FF5722", tasks: ["investigate","photograph","interview","publish"], desc: "Chase the story. Investigate tips, photograph scenes, and publish scoops." },
+];
+
+const BUILDINGS = [
+  { id: "station", label: "Station", color: "#455A64" },
+  { id: "hospital", label: "Hospital", color: "#c62828" },
+  { id: "market", label: "Market", color: "#558B2F" },
+  { id: "school", label: "School", color: "#6A1B9A" },
+  { id: "garage", label: "Garage", color: "#4E342E" },
+  { id: "park", label: "Park", color: "#2E7D32" },
+  { id: "diner", label: "Diner", color: "#E65100" },
+  { id: "hotel", label: "Hotel", color: "#1565C0" },
+];
+
+let job, player, tasks, money, rep, health, day, timeMin, logLines, events, canvas, ctx;
+let keys = {};
+let lastTime = 0;
+let moveTimer = 0;
+let buildingLayout = [];
+let roadMap = [];
+let activeEvents = [];
+let particles = [];
+let currentShift = 0;
+
+function initMap() {
+  roadMap = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+  buildingLayout = [];
+
+  // Horizontal roads
+  [4, 9, 14].forEach(r => {
+    for (let c = 0; c < COLS; c++) roadMap[r][c] = 1;
+  });
+  // Vertical roads
+  [6, 13, 20].forEach(c => {
+    for (let r = 0; r < ROWS; r++) roadMap[r][c] = 1;
+  });
+
+  const bPositions = [
+    { x: 1, y: 1, w: 4, h: 2 }, { x: 8, y: 1, w: 4, h: 2 },
+    { x: 15, y: 1, w: 4, h: 2 }, { x: 22, y: 1, w: 5, h: 2 },
+    { x: 1, y: 5, w: 4, h: 3 }, { x: 8, y: 5, w: 4, h: 3 },
+    { x: 15, y: 5, w: 4, h: 3 }, { x: 22, y: 5, w: 5, h: 3 },
+    { x: 1, y: 10, w: 4, h: 3 }, { x: 8, y: 10, w: 4, h: 3 },
+    { x: 15, y: 10, w: 4, h: 3 }, { x: 22, y: 10, w: 5, h: 3 },
+    { x: 1, y: 15, w: 4, h: 2 }, { x: 8, y: 15, w: 4, h: 2 },
+    { x: 15, y: 15, w: 4, h: 2 }, { x: 22, y: 15, w: 5, h: 2 },
+  ];
+
+  BUILDINGS.forEach((b, i) => {
+    const pos = bPositions[i % bPositions.length];
+    buildingLayout.push({ ...b, ...pos });
+    for (let dy = 0; dy < pos.h; dy++) for (let dx = 0; dx < pos.w; dx++) {
+      if (pos.y + dy < ROWS && pos.x + dx < COLS) roadMap[pos.y + dy][pos.x + dx] = 2;
+    }
+  });
+}
+
+function spawnTask() {
+  const taskTypes = {
+    "Police Officer":    ["🚨 Crime reported near market","🚗 Speeding vehicle on Main St","🔎 Suspicious activity at hotel","👊 Fight near the diner","📞 Noise complaint at station"],
+    "Firefighter":       ["🔥 Structure fire at hotel","💨 Smoke in the school","🚒 Car fire on highway","🏚️ Hazmat spill near garage","⚠️ Fire alarm at hospital"],
+    "Paramedic / EMT":   ["🤕 Injury near the park","❤️‍🩹 Cardiac event at diner","🚑 Multi-car accident","😵 Heat exhaustion at market","🩸 Trauma at construction site"],
+    "Chef":              ["🍳 Rush of diners — cook 8 meals","🥩 Ingredient delivery incoming","⭐ VIP table needs special menu","🧑‍🍳 Sous chef called sick — fill in","🔥 Kitchen fire — act fast!"],
+    "Taxi Driver":       ["🙋 Passenger at hotel","⏰ Late passenger — airport run","🗺️ Tourist needs city tour","🌧️ Busy night — 5 fares waiting","💼 Business exec needs silence"],
+    "Construction Worker":["🔨 Foundation cracks at school","🏗️ Delivery of steel beams","⚠️ Safety violation reported","🚧 Road resurfacing needed","🪟 Window repair at hospital"],
+    "Teacher":           ["📝 Midterm exam — 30 papers","🎤 Parent-teacher conference","🧑‍🎓 Struggling student needs help","🏆 Science fair prep","📢 Staff meeting at station"],
+    "Mechanic":          ["🔧 Engine failure: blue sedan","🛞 4 blown tires at market","💡 Electrical fault in ambulance","⛽ Fuel leak at garage","🔩 Transmission rebuild"],
+    "Delivery Driver":   ["📦 Urgent medical delivery","🕐 3 packages — 20 min window","🌡️ Cold-chain food order","❓ Wrong address — reroute","📬 Night delivery run: 6 stops"],
+    "Doctor":            ["🩺 Chest pain in waiting room","💊 Prescription review x10","🔬 Lab results need follow-up","🤒 Flu outbreak at school","🩹 Minor surgery scheduled"],
+    "Street Vendor":     ["😋 Lunch rush: 15 customers","🥬 Restock — market is open","🌧️ Rain — move cart inside","⭐ Food critic spotted nearby","🎉 Festival nearby — huge demand"],
+    "Journalist":        ["📸 Breaking: fire at hotel","🎙️ Interview the Police Chief","🕵️ Corruption tip — investigate","📰 Deadline in 30 min","🌐 Viral video from park"],
+  };
+
+  const pool = taskTypes[job.name] || ["📋 General city duty"];
+  const txt = pool[Math.floor(Math.random() * pool.length)];
+  const reward = 80 + Math.floor(Math.random() * 120);
+  const urgency = Math.random() > 0.5 ? "urgent" : "normal";
+  return { id: Date.now() + Math.random(), text: txt, reward, urgency, ttl: urgency === "urgent" ? 45 : 90, progress: 0, done: false };
+}
+
+function addLog(msg) {
+  logLines.unshift(msg);
+  if (logLines.length > 5) logLines.pop();
+  const el = document.getElementById("logEntries");
+  el.innerHTML = logLines.map(l => `<div>${l}</div>`).join("");
+}
+
+function spawnEvent() {
+  const road = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (roadMap[r][c] === 1) road.push({ x: c, y: r });
+  if (!road.length) return;
+  const pos = road[Math.floor(Math.random() * road.length)];
+  const types = ["fire 🔥", "crash 💥", "person 🙋", "hazard ⚠️", "emergency 🚨"];
+  const t = types[Math.floor(Math.random() * types.length)];
+  activeEvents.push({ x: pos.x, y: pos.y, type: t, ttl: 20 + Math.random() * 30, radius: 1.5, pulse: 0 });
+}
+
+function addParticle(wx, wy, color, text) {
+  particles.push({ x: wx, y: wy, color, text, life: 1.5, vy: -30 });
+}
+
+function startGame() {
+  document.getElementById("splash").style.display = "none";
+  initMap();
+  player = { x: 13, y: 9, px: 13 * TILE + TILE / 2, py: 9 * TILE + TILE / 2 };
+  tasks = [spawnTask(), spawnTask()];
+  money = 0; rep = 0; health = 100; day = 1; timeMin = 480;
+  logLines = [];
+  activeEvents = [];
+  particles = [];
+  currentShift = 0;
+  addLog(`🏙️ New shift began. You are a ${job.emoji} ${job.name}.`);
+  spawnEvent();
+  requestAnimationFrame(gameLoop);
+}
+
+function gameLoop(ts) {
+  const dt = Math.min((ts - lastTime) / 1000, 0.1);
+  lastTime = ts;
+  update(dt);
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+function update(dt) {
+  // Time
+  timeMin += dt * 4;
+  if (timeMin >= 1440) { timeMin = 480; day++; addLog(`🌅 Day ${day} begins.`); }
+
+  // Movement
+  moveTimer -= dt;
+  if (moveTimer <= 0) {
+    let dx = 0, dy = 0;
+    if (keys["ArrowLeft"]  || keys["a"] || keys["A"]) dx = -1;
+    if (keys["ArrowRight"] || keys["d"] || keys["D"]) dx =  1;
+    if (keys["ArrowUp"]    || keys["w"] || keys["W"]) dy = -1;
+    if (keys["ArrowDown"]  || keys["s"] || keys["S"]) dy =  1;
+    if (dx !== 0 || dy !== 0) {
+      const nx = player.x + dx, ny = player.y + dy;
+      if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && roadMap[ny][nx] !== 2) {
+        player.x = nx; player.y = ny;
+      }
+      moveTimer = 0.13;
+    }
+  }
+  player.px += ((player.x * TILE + TILE / 2) - player.px) * dt * 14;
+  player.py += ((player.y * TILE + TILE / 2) - player.py) * dt * 14;
+
+  // Interact
+  if (keys["e"] || keys["E"] || keys[" "]) {
+    keys["e"] = keys["E"] = keys[" "] = false;
+    interactNearby();
+  }
+
+  // Tasks ttl
+  tasks.forEach(t => {
+    if (!t.done) {
+      t.ttl -= dt;
+      if (t.ttl <= 0) { addLog(`⏰ Task expired: ${t.text.slice(0, 28)}...`); t.done = true; rep = Math.max(0, rep - 5); health = Math.max(0, health - 2); }
+    }
+  });
+  tasks = tasks.filter(t => !t.done);
+  while (tasks.length < 2) tasks.push(spawnTask());
+
+  // Events
+  activeEvents.forEach(e => { e.ttl -= dt; e.pulse += dt * 3; });
+  activeEvents = activeEvents.filter(e => e.ttl > 0);
+  if (Math.random() < dt * 0.1) spawnEvent();
+
+  // Particles
+  particles.forEach(p => { p.life -= dt; p.vy -= dt * 8; p.y += p.vy * dt; });
+  particles = particles.filter(p => p.life > 0);
+
+  updateHUD();
+  updateTaskPanel();
+}
+
+function interactNearby() {
+  // Check events nearby
+  let acted = false;
+  for (let i = activeEvents.length - 1; i >= 0; i--) {
+    const e = activeEvents[i];
+    const dist = Math.hypot(e.x - player.x, e.y - player.y);
+    if (dist < 2.5) {
+      const earn = 50 + Math.floor(Math.random() * 80);
+      money += earn;
+      rep += 3;
+      addLog(`✅ Responded to ${e.type} — earned $${earn}`);
+      addParticle(e.x * TILE, e.y * TILE, "#4CAF50", `+$${earn}`);
+      activeEvents.splice(i, 1);
+      acted = true;
+      break;
+    }
+  }
+
+  // Check buildings
+  if (!acted) {
+    for (const b of buildingLayout) {
+      const bCx = b.x + b.w / 2, bCy = b.y + b.h / 2;
+      if (Math.abs(player.x - bCx) < b.w / 2 + 1.5 && Math.abs(player.y - bCy) < b.h / 2 + 1.5) {
+        const t = tasks[0];
+        if (t) {
+          const earn = t.reward;
+          money += earn;
+          rep += 8;
+          addLog(`🏢 Completed at ${b.label}: ${t.text.slice(0, 24)}... +$${earn}`);
+          addParticle(player.px, player.py - 20, "#FFD700", `+$${earn} ⭐`);
+          t.done = true;
+          acted = true;
+        }
+        break;
+      }
+    }
+  }
+
+  if (!acted) addLog("Nothing to interact with nearby.");
+}
+
+function render() {
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const offX = W / 2 - player.px;
+  const offY = H / 2 - player.py;
+  ctx.save();
+  ctx.translate(offX, offY);
+
+  // Draw ground
+  ctx.fillStyle = "#1b5e20";
+  ctx.fillRect(0, 0, COLS * TILE, ROWS * TILE);
+
+  // Roads
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    if (roadMap[r][c] === 1) {
+      ctx.fillStyle = "#37474F";
+      ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
+      // lane markings
+      ctx.strokeStyle = "#546E7A";
+      ctx.setLineDash([6, 8]);
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(c * TILE + TILE / 2, r * TILE);
+      ctx.lineTo(c * TILE + TILE / 2, r * TILE + TILE);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Buildings
+  for (const b of buildingLayout) {
+    ctx.fillStyle = b.color;
+    ctx.fillRect(b.x * TILE + 2, b.y * TILE + 2, b.w * TILE - 4, b.h * TILE - 4);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(b.x * TILE + 2, b.y * TILE + 2, b.w * TILE - 4, b.h * TILE - 4);
+    // Windows
+    ctx.fillStyle = "rgba(255,255,180,0.5)";
+    for (let wy = 0; wy < b.h; wy++) for (let wx = 0; wx < b.w; wx++) {
+      ctx.fillRect(b.x * TILE + wx * TILE + 8, b.y * TILE + wy * TILE + 8, 8, 8);
+      ctx.fillRect(b.x * TILE + wx * TILE + 22, b.y * TILE + wy * TILE + 8, 8, 8);
+    }
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 10px Courier New";
+    ctx.textAlign = "center";
+    ctx.fillText(b.label, (b.x + b.w / 2) * TILE, (b.y + b.h / 2) * TILE + 4);
+  }
+
+  // Active events
+  for (const e of activeEvents) {
+    const alpha = 0.6 + 0.4 * Math.sin(e.pulse);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = e.type.includes("fire") ? "#FF5722" : e.type.includes("crash") ? "#FF9800" : "#E91E63";
+    ctx.beginPath();
+    ctx.arc(e.x * TILE + TILE / 2, e.y * TILE + TILE / 2, TILE * 0.55 * (1 + 0.2 * Math.sin(e.pulse)), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.font = "20px serif";
+    ctx.textAlign = "center";
+    ctx.fillText(e.type.split(" ")[1] || "!", e.x * TILE + TILE / 2, e.y * TILE + TILE / 2 + 7);
+  }
+
+  // Player shadow
+  ctx.fillStyle = "rgba(0,0,0,0.3)";
+  ctx.beginPath();
+  ctx.ellipse(player.px, player.py + 14, 10, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Player body
+  ctx.fillStyle = job.color;
+  ctx.beginPath();
+  ctx.roundRect(player.px - 12, player.py - 18, 24, 28, 6);
+  ctx.fill();
+  ctx.strokeStyle = "#000";
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  // Head
+  ctx.fillStyle = "#FFCC80";
+  ctx.beginPath();
+  ctx.arc(player.px, player.py - 22, 10, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  // Emoji badge
+  ctx.font = "14px serif";
+  ctx.textAlign = "center";
+  ctx.fillText(job.emoji, player.px, player.py - 4);
+
+  // Particles
+  for (const p of particles) {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.font = "bold 14px Courier New";
+    ctx.textAlign = "center";
+    ctx.fillText(p.text, p.x + TILE / 2, p.y);
+  }
+  ctx.globalAlpha = 1;
+
+  // Interaction range
+  ctx.strokeStyle = "rgba(255,255,255,0.15)";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 6]);
+  ctx.beginPath();
+  ctx.arc(player.px, player.py, TILE * 2.5, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
+
+  // Mini compass
+  ctx.fillStyle = "rgba(0,0,0,0.5)";
+  ctx.fillRect(W - 70, H - 70, 60, 60);
+  ctx.strokeStyle = "#555";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W - 70, H - 70, 60, 60);
+  const mx = ((player.x / COLS) * 56) + (W - 68);
+  const my = ((player.y / ROWS) * 56) + (H - 68);
+  ctx.fillStyle = job.color;
+  ctx.beginPath();
+  ctx.arc(mx, my, 4, 0, Math.PI * 2);
+  ctx.fill();
+  activeEvents.forEach(e => {
+    const ex = ((e.x / COLS) * 56) + (W - 68);
+    const ey = ((e.y / ROWS) * 56) + (H - 68);
+    ctx.fillStyle = "#F44336";
+    ctx.beginPath();
+    ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+}
+
+function updateHUD() {
+  const h = Math.floor(timeMin / 60).toString().padStart(2, "0");
+  const m = Math.floor(timeMin % 60).toString().padStart(2, "0");
+  document.getElementById("money").textContent = money;
+  document.getElementById("rep").textContent = rep;
+  document.getElementById("health").textContent = health;
+  document.getElementById("day").textContent = day;
+  document.getElementById("timeStr").textContent = `${h}:${m}`;
+  document.getElementById("jobBadge").style.borderColor = job.color;
+  document.getElementById("jobBadge").textContent = `${job.emoji} ${job.name}`;
+}
+
+function updateTaskPanel() {
+  const el = document.getElementById("taskList");
+  el.innerHTML = tasks.slice(0, 3).map(t => {
+    const urgentTag = t.urgency === "urgent" ? ' <span style="color:#f44">URGENT</span>' : '';
+    const ttlColor = t.ttl < 15 ? "#f44" : t.ttl < 30 ? "#ff9800" : "#8bc34a";
+    return `<div class="taskItem">${t.text}${urgentTag}<br><span style="color:${ttlColor};font-size:10px">⏱ ${Math.max(0, Math.floor(t.ttl))}s  💰 $${t.reward}</span></div>`;
+  }).join("");
+}
+
+function resizeCanvas() {
+  canvas = document.getElementById("canvas");
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  ctx = canvas.getContext("2d");
+}
+
+// --- Init splash ---
+(function initSplash() {
+  job = JOBS[Math.floor(Math.random() * JOBS.length)];
+  const revealEl = document.getElementById("jobReveal");
+  const descEl = document.getElementById("jobDesc");
+  let rolls = 0;
+  const interval = setInterval(() => {
+    const rj = JOBS[Math.floor(Math.random() * JOBS.length)];
+    revealEl.textContent = `${rj.emoji} ${rj.name}`;
+    revealEl.style.borderColor = rj.color;
+    rolls++;
+    if (rolls > 14) {
+      clearInterval(interval);
+      revealEl.textContent = `${job.emoji} ${job.name}`;
+      revealEl.style.borderColor = job.color;
+      revealEl.style.background = `${job.color}22`;
+      descEl.textContent = job.desc;
+    }
+  }, 100);
+})();
+
+window.addEventListener("keydown", e => { keys[e.key] = true; if (e.key === "r" || e.key === "R") { job = JOBS[Math.floor(Math.random() * JOBS.length)]; if (typeof startGame !== "undefined") startGame(); } });
+window.addEventListener("keyup",  e => { keys[e.key] = false; });
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+</script>
+</body>
+</html>
