@@ -53,13 +53,23 @@ canvas { display:block; }
   <div id="stats">
     <div>💵 <span id="sMoney">0</span> &nbsp;⭐ <span id="sRep">0</span></div>
     <div>❤ <span id="sHP">100</span>% &nbsp;🔫 <span id="sGun">Unarmed</span></div>
-    <div>🕐 Day <span id="sDay">1</span>  <span id="sTime">08:00</span></div>
+    <div>🕐 Day <span id="sDay">1</span>  <span id="sTime">08:00</span>  📱 <span id="sPhone" style="cursor:pointer;color:#e8c86a" onclick="togglePhone()">Phone</span></div>
   </div>
 </div>
 <div id="wanted">⚠ WANTED  <span id="wStars">★☆☆</span></div>
 <div id="taskPanel"><b>Tasks</b><div id="taskList"></div></div>
 <div id="log"><b>Activity</b><div id="logLines"></div></div>
-<div id="ctrl"><b>Controls</b><br>WASD / Arrows — Move<br>E / Space — Interact<br>E near car — Enter/Exit car<br>F — Fire weapon<br>R — Reroll &amp; restart</div>
+<div id="ctrl"><b>Controls</b><br>WASD / Arrows — Move<br>E / Space — Interact<br>E near car — Enter/Exit car<br>F — Fire weapon<br>P — Phone<br>R — Reroll &amp; restart</div>
+<div id="phoneOverlay" style="display:none;position:fixed;inset:0;z-index:50;align-items:center;justify-content:center;">
+  <div style="background:#111;border:1px solid #333;border-radius:18px;padding:28px 24px;min-width:260px;max-width:300px;box-shadow:0 0 40px rgba(0,0,0,.9);font-family:'Segoe UI',sans-serif;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span style="font-size:1.1em;font-weight:700;color:#e8c86a;">📱 Phone</span>
+      <span style="color:#555;font-size:.8em;">Press P to close</span>
+    </div>
+    <div id="phoneApps" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+    <div id="phoneMsg" style="margin-top:12px;font-size:.8em;color:#aaa;min-height:20px;"></div>
+  </div>
+</div>
 
 <div id="splash">
   <h1>CITY SPAWN</h1>
@@ -70,9 +80,11 @@ canvas { display:block; }
 </div>
 
 <script>
-const T   = 36;
-const MC  = 72, MR = 48;
+// ── Config ────────────────────────────────────────────────────────────────────
+const T   = 36;          // tile size px
+const MC  = 72, MR = 48; // map cols / rows  (big city)
 
+// ── Jobs ──────────────────────────────────────────────────────────────────────
 const JOBS = [
   { name:"Police Officer", color:"#2563EB", shirtHex:"#1d4ed8", isPolice:true,
     desc:"Patrol the city, arrest robbers, respond to active heists. Pick up your service weapon at the Station." },
@@ -92,6 +104,7 @@ const JOBS = [
     desc:"Chase breaking news: crimes, fires, interviews. Publish before deadline." },
 ];
 
+// ── Building defs ─────────────────────────────────────────────────────────────
 const BDEFS = [
   { id:"bank",     label:"BANK",       face:"#78716c", trim:"#a8956a", robbable:true, loot:500, robTime:9  },
   { id:"store",    label:"Convenience", face:"#4b7c59", trim:"#6b9e75", robbable:true, loot:180, robTime:4  },
@@ -108,6 +121,7 @@ const BDEFS = [
   { id:"garage",   label:"Garage",     face:"#1c1c2e", trim:"#6366f1", garageshop:true, carCost:400 },
 ];
 
+// ── Palette helpers ───────────────────────────────────────────────────────────
 const SKIN_TONES = ["#f5cba7","#e8ac84","#c68642","#8d5524","#4a2912"];
 const HAIR_COLS  = ["#1a0a00","#3d1c02","#6b3a2a","#c8a96e","#e8e8e8","#111"];
 const SHIRT_COLS = ["#1e40af","#dc2626","#059669","#d97706","#7c3aed","#374151","#0e7490","#be185d"];
@@ -121,24 +135,32 @@ function darkenHex(hex, amt) {
 function rand(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
 function pick(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
+// ── State ─────────────────────────────────────────────────────────────────────
 let cvs, ctx, mcvs, mctx, job;
 let keys = {}, lastTs=0;
 let player, npcs=[], cars=[], bullets=[], particles=[], robberies=[];
 let map=[], buildings=[];
 let logLines=[], timeMin=480, day=1;
 
+// ── Map generation ────────────────────────────────────────────────────────────
 function buildMap() {
   map = Array.from({length:MR}, ()=>Array(MC).fill(0));
+
   const hRoads = [5,6, 14,15, 23,24, 33,34, 42,43];
   const vRoads = [4,5, 13,14, 22,23, 31,32, 40,41, 50,51, 61,62];
+
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++) {
-    if(hRoads.includes(r)||vRoads.includes(c)) map[r][c]=1;
+    const onH = hRoads.includes(r);
+    const onV = vRoads.includes(c);
+    if(onH||onV) map[r][c]=1;
   }
+
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++) {
     if(map[r][c]===1) continue;
     const adj = [[r-1,c],[r+1,c],[r,c-1],[r,c+1]];
     if(adj.some(([nr,nc])=>nr>=0&&nr<MR&&nc>=0&&nc<MC&&map[nr][nc]===1)) map[r][c]=3;
   }
+
   buildings = [];
   const bSlots = [
     {x:0,y:0,w:3,h:4},{x:6,y:0,w:6,h:4},{x:15,y:0,w:6,h:4},{x:24,y:0,w:6,h:4},{x:33,y:0,w:6,h:4},{x:43,y:0,w:6,h:4},{x:52,y:0,w:8,h:4},
@@ -147,9 +169,11 @@ function buildMap() {
     {x:0,y:25,w:3,h:7},{x:6,y:25,w:6,h:7},{x:15,y:25,w:6,h:7},{x:24,y:25,w:6,h:7},{x:33,y:25,w:6,h:7},{x:43,y:25,w:6,h:7},{x:52,y:25,w:8,h:7},
     {x:0,y:35,w:3,h:6},{x:6,y:35,w:6,h:6},{x:15,y:35,w:6,h:6},{x:24,y:35,w:6,h:6},{x:33,y:35,w:6,h:6},{x:43,y:35,w:6,h:6},{x:52,y:35,w:8,h:6},
   ];
+
   BDEFS.forEach((b,i) => {
     const s = bSlots[i % bSlots.length];
-    buildings.push({...b,...s});
+    const bld = {...b,...s, winRows:Math.max(1,s.h-1), winCols:Math.max(1,s.w-1) };
+    buildings.push(bld);
     for(let dy=0;dy<s.h;dy++) for(let dx=0;dx<s.w;dx++) {
       const rr=s.y+dy, cc=s.x+dx;
       if(rr<MR&&cc<MC) map[rr][cc]=2;
@@ -157,14 +181,22 @@ function buildMap() {
   });
 }
 
-function isRoadTile(x,y) { if(x<0||x>=MC||y<0||y>=MR) return false; return map[y][x]===1; }
-function canWalk(x,y) { if(x<0||x>=MC||y<0||y>=MR) return false; return map[y][x]!==2; }
+function isRoadTile(x,y) {
+  if(x<0||x>=MC||y<0||y>=MR) return false;
+  return map[y][x]===1;
+}
+function canWalk(x,y) {
+  if(x<0||x>=MC||y<0||y>=MR) return false;
+  return map[y][x]!==2;
+}
+
 function randRoadPos() {
   const tiles=[];
   for(let y=0;y<MR;y++) for(let x=0;x<MC;x++) if(map[y][x]===1) tiles.push({x,y});
   return pick(tiles);
 }
 
+// ── NPC factories ─────────────────────────────────────────────────────────────
 function makeHumanAppearance() {
   return { skin:pick(SKIN_TONES), hair:pick(HAIR_COLS), shirt:pick(SHIRT_COLS), pants:pick(["#1e293b","#374151","#292524","#1c1917"]) };
 }
@@ -188,7 +220,7 @@ function spawnRobberNPC(x,y) {
 }
 
 function spawnPed(x,y) {
-  const pts=[]; for(let i=0;i<4;i++) pts.push(randRoadPos());
+  const pts=[]; for(let i=0;i<4;i++) { const p=randRoadPos(); pts.push(p); }
   return { kind:"ped", x,y, px:x*T+T/2, py:y*T+T/2,
     state:"walk", patrolPts:pts, patrolIdx:0, moveTimer:0, walkPhase:Math.random()*6,
     app:makeHumanAppearance()
@@ -199,12 +231,15 @@ function spawnCar(x,y) {
   const isH = [5,14,23,33,42].some(r=>Math.abs(y-r)<=1);
   const pts=[]; for(let i=0;i<6;i++) pts.push(randRoadPos());
   return { kind:"car", x,y, px:x*T+T/2, py:y*T+T/2,
-    targetPts:pts, ptIdx:0, color:pick(CAR_COLS),
+    targetPts:pts, ptIdx:0,
+    color:pick(CAR_COLS), color2:pick(CAR_COLS),
     angle:isH?0:Math.PI/2, speed:0.08+Math.random()*0.04,
-    moveTimer:0, w:12, l:20
+    moveTimer:0, horn:false,
+    w:12, l:20
   };
 }
 
+// ── Task text ─────────────────────────────────────────────────────────────────
 const TASK_TEXT = {
   "Police Officer":["🚨 Crime reported near market","🚗 Speeding vehicle on 5th Ave","🔎 Suspicious activity at hotel","👊 Assault near the diner","📞 Noise complaint downtown","🏦 Bank alarm triggered","🏪 Store robbery in progress"],
   "Robber":        ["🏦 Scope the bank entrance","🏪 Hit the corner store","💎 Jewelry smash-and-grab","🔫 Resupply at gun shop","🚗 Steal getaway vehicle","👁 Shadow the patrol route"],
@@ -221,37 +256,42 @@ function makeTask() {
   return { text:pick(pool), reward:rand(80,220), ttl:rand(60,120), done:false };
 }
 
+// ── Log / particles ───────────────────────────────────────────────────────────
 function log(msg){ logLines.unshift(msg); if(logLines.length>6)logLines.pop(); renderLog(); }
 function renderLog(){ document.getElementById("logLines").innerHTML=logLines.slice(0,5).map(l=>`<div>${l}</div>`).join(""); }
 function particle(x,y,text,col="#FFD700"){ particles.push({x,y,text,col,life:1.6,vy:-26}); }
 
+// ── Init ──────────────────────────────────────────────────────────────────────
 function startGame() {
   document.getElementById("splash").style.display="none";
   buildMap();
   const sp=randRoadPos();
   player={ x:sp.x, y:sp.y, px:sp.x*T+T/2, py:sp.y*T+T/2,
     hp:100, money:0, rep:0, armed:false, wLevel:0, tasks:[],
-    icd:0, walkPhase:0, moveTimer:0, inCar:null,
+    icd:0, walkPhase:0, moveTimer:0, inCar:null, phone:true, phoneOpen:false,
     app:{ skin:pick(SKIN_TONES), hair:pick(HAIR_COLS), shirt:job.shirtHex, pants:"#1e293b" }
   };
   npcs=[]; cars=[]; bullets=[]; particles=[]; robberies=[]; logLines=[];
   timeMin=480; day=1; lastTs=0;
+
   const st=buildings.find(b=>b.policeSpawn);
   for(let i=0;i<4;i++){ const p=st?{x:st.x+i%st.w,y:st.y}:randRoadPos(); npcs.push(spawnCop(p.x,p.y)); }
   for(let i=0;i<3;i++){ const p=randRoadPos(); npcs.push(spawnRobberNPC(p.x,p.y)); }
   for(let i=0;i<14;i++){ const p=randRoadPos(); npcs.push(spawnPed(p.x,p.y)); }
   for(let i=0;i<18;i++){ const p=randRoadPos(); cars.push(spawnCar(p.x,p.y)); }
+
   player.tasks=[makeTask(),makeTask()];
   log(`Shift started — you're a ${job.name}.`);
   if(job.isPolice)  log("Tip: walk up to a robber and press E to arrest.");
   if(job.isCriminal)log("Tip: approach a bank or store and press E to rob.");
-  log("Tip: press E near any car to jack it. Buy one at the Garage.");
   document.getElementById("wanted").style.display=job.isCriminal?"block":"none";
   requestAnimationFrame(loop);
 }
 
+// ── Loop ──────────────────────────────────────────────────────────────────────
 function loop(ts){ const dt=Math.min((ts-lastTs)/1000,.1); lastTs=ts; update(dt); draw(); requestAnimationFrame(loop); }
 
+// ── Movement ──────────────────────────────────────────────────────────────────
 function tryStep(ent,dx,dy){
   const nx=ent.x+dx, ny=ent.y+dy;
   if(!canWalk(nx,ny)) return false;
@@ -272,6 +312,7 @@ function smoothPos(ent,dt,spd=14){ ent.px+=(ent.x*T+T/2-ent.px)*Math.min(dt*spd,
 function dist2(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
 function nearBld(ent,b,r=2){ return Math.abs(ent.x-(b.x+b.w/2))<b.w/2+r && Math.abs(ent.y-(b.y+b.h/2))<b.h/2+r; }
 
+// ── Update ────────────────────────────────────────────────────────────────────
 function update(dt){
   timeMin+=dt*3; if(timeMin>=1440){timeMin=480;day++;log(`Day ${day} — new shift begins.`);}
   updatePlayer(dt); updateNPCs(dt); updateCars(dt); updateBullets(dt); updateRobberies(dt);
@@ -283,6 +324,7 @@ function update(dt){
 
 function updatePlayer(dt){
   player.icd-=dt;
+
   if(player.inCar){
     const car=player.inCar;
     let fwd=0, turn=0;
@@ -290,9 +332,11 @@ function updatePlayer(dt){
     if(keys.ArrowDown||keys.s||keys.S) fwd=-1;
     if(keys.ArrowLeft||keys.a||keys.A) turn=-1;
     if(keys.ArrowRight||keys.d||keys.D) turn= 1;
-    if(fwd!==0) car.angle+=turn*2*dt;
-    car.px+=Math.cos(car.angle)*fwd*120*dt;
-    car.py+=Math.sin(car.angle)*fwd*120*dt;
+    const carSpeed=120;
+    const turnRate=2;
+    if(fwd!==0) car.angle+=turn*turnRate*dt;
+    car.px+=Math.cos(car.angle)*fwd*carSpeed*dt;
+    car.py+=Math.sin(car.angle)*fwd*carSpeed*dt;
     car.px=Math.max(car.l,Math.min(MC*T-car.l,car.px));
     car.py=Math.max(car.l,Math.min(MR*T-car.l,car.py));
     player.px=car.px; player.py=car.py;
@@ -312,12 +356,14 @@ function updatePlayer(dt){
     if(moved) player.walkPhase+=0.4;
     smoothPos(player,dt,16);
   }
+
   if((keys.e||keys.E||keys[" "])&&player.icd<=0){ keys.e=keys.E=keys[" "]=false; interact(); player.icd=0.55; }
   if((keys.f||keys.F)&&player.icd<=0){ keys.f=keys.F=false; fireWeapon(); player.icd=0.4; }
-  const sight=player.inCar?(player.wLevel>0?10:8):6;
-  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<sight){c.state="chase";c.target=player;}});
+
+  const copSightRange=player.inCar?(player.wLevel>0?10:8):6;
+  if(player.wLevel>0) npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(c=>{if(dist2(c,player)<copSightRange){c.state="chase";c.target=player;}});
   npcs.filter(n=>n.kind==="cop"&&n.state==="chase"&&n.target===player).forEach(c=>{
-    if(dist2(c,player)<1.5&&!player.armed){ const fine=Math.floor(player.money*.4); player.money=Math.max(0,player.money-fine); player.wLevel=0; player.armed=false; player.inCar=null; c.state="patrol"; c.target=null; log(`Arrested! Fined $${fine}.`); particle(player.px,player.py,"BUSTED","#ef4444"); }
+    if(dist2(c,player)<1.5&&!player.armed){ const fine=Math.floor(player.money*.4); player.money=Math.max(0,player.money-fine); player.wLevel=0; player.armed=false; c.state="patrol"; c.target=null; log(`Arrested! Fined $${fine}.`); particle(player.px,player.py,"BUSTED","#ef4444"); }
   });
   const h=buildings.find(b=>b.healspot);
   if(h&&nearBld(player,h,2)&&player.hp<100&&player.money>0){ player.hp=Math.min(100,player.hp+dt*18); player.money=Math.max(0,player.money-dt*8); }
@@ -335,9 +381,9 @@ function interact(){
     return;
   }
   let nearCar=null, nearCarDist=999;
-  for(const c of cars){ const d=dist2(c,player); if(d<2.5&&d<nearCarDist){nearCarDist=d;nearCar=c;} }
+  for(const c of cars){ const d=dist2(c,player); if(d<2&&d<nearCarDist){nearCarDist=d;nearCar=c;} }
   if(nearCar){
-    cars.splice(cars.indexOf(nearCar),1);
+    const idx=cars.indexOf(nearCar); if(idx>=0) cars.splice(idx,1);
     player.inCar=nearCar;
     log("Jacked a car — press E to exit.");
     if(job.isCriminal){ player.wLevel=Math.min(3,player.wLevel+1); log("Wanted level up for vehicle theft!"); }
@@ -345,8 +391,15 @@ function interact(){
   }
   const gar=buildings.find(b=>b.garageshop);
   if(gar&&nearBld(player,gar)){
-    if(player.money>=gar.carCost){ player.money-=gar.carCost; const nc=spawnCar(gar.x+Math.floor(gar.w/2),gar.y+gar.h); player.inCar=nc; log(`Bought a car — $${gar.carCost}. WASD to drive, E to exit.`); particle(player.px,player.py-20,`-$${gar.carCost}`,"#6366f1"); }
-    else log(`Need $${gar.carCost} to buy a car.`);
+    if(player.money>=gar.carCost){
+      player.money-=gar.carCost;
+      const nc=spawnCar(gar.x+Math.floor(gar.w/2),gar.y+gar.h);
+      player.inCar=nc;
+      log(`Bought a car for $${gar.carCost}. Drive with WASD, E to exit.`);
+      particle(player.px,player.py-20,`-$${gar.carCost}`,"#6366f1");
+    } else {
+      log(`Need $${gar.carCost} to buy a car.`);
+    }
     return;
   }
   if(job.isPolice){ for(const n of npcs){ if(n.kind==="robber"&&dist2(n,player)<2.5){ const earn=130+Math.floor(n.money); player.money+=earn; player.rep+=12; log(`Arrested robber — +$${earn}`); particle(player.px,player.py-20,`+$${earn}`,"#22c55e"); const p=randRoadPos(); Object.assign(n,spawnRobberNPC(p.x,p.y)); return; } } }
@@ -447,6 +500,7 @@ function updateRobberies(dt){
 
 function respawn(){ const p=randRoadPos(); player.x=p.x;player.y=p.y;player.px=p.x*T+T/2;player.py=p.y*T+T/2; player.hp=100;player.armed=false;player.wLevel=0;player.inCar=null; const fine=Math.floor(player.money*.45); player.money=Math.max(0,player.money-fine); log(`Respawned. Lost $${fine}.`); }
 
+// ── HUD ───────────────────────────────────────────────────────────────────────
 function updateHUD(){
   const h=String(Math.floor(timeMin/60)).padStart(2,"0"), m=String(Math.floor(timeMin%60)).padStart(2,"0");
   document.getElementById("sMoney").textContent=player.money;
@@ -462,6 +516,7 @@ function updateHUD(){
   const rp=robberies.find(r=>r.isPlayer); if(rp){ const b=buildings[rp.bi]; document.getElementById("taskList").innerHTML+=`<div class="ti" style="color:#fbbf24">Robbing ${b.label}: ${Math.round(rp.timer/rp.total*100)}%</div>`; }
 }
 
+// ── Rendering ─────────────────────────────────────────────────────────────────
 function draw(){
   ctx.clearRect(0,0,cvs.width,cvs.height);
   const ox=cvs.width/2-player.px, oy=cvs.height/2-player.py;
@@ -617,14 +672,127 @@ function drawMinimap(){
   cars.forEach(c=>{ mx.fillStyle=c.color; mx.fillRect(c.x*sx,c.y*sy,sx+1,sy+1); });
   npcs.filter(n=>n.kind==="cop").forEach(n=>{ mx.fillStyle="#2563eb"; mx.beginPath();mx.arc(n.x*sx+sx/2,n.y*sy+sy/2,2,0,Math.PI*2);mx.fill(); });
   npcs.filter(n=>n.kind==="robber").forEach(n=>{ mx.fillStyle="#ef4444"; mx.beginPath();mx.arc(n.x*sx+sx/2,n.y*sy+sy/2,2,0,Math.PI*2);mx.fill(); });
-  mx.fillStyle=player.inCar?"#6366f1":job.color; mx.beginPath();mx.arc(player.x*sx+sx/2,player.y*sy+sy/2,3,0,Math.PI*2);mx.fill();
+  mx.fillStyle=job.color; mx.beginPath();mx.arc(player.x*sx+sx/2,player.y*sy+sy/2,3,0,Math.PI*2);mx.fill();
 }
 
+// ── Phone ─────────────────────────────────────────────────────────────────────
+function togglePhone(){
+  if(!player||!player.phone) return;
+  const ov=document.getElementById("phoneOverlay");
+  const open=ov.style.display==="flex";
+  ov.style.display=open?"none":"flex";
+  player.phoneOpen=!open;
+  if(!open) buildPhoneApps();
+}
+
+function phoneMsg(txt){ document.getElementById("phoneMsg").textContent=txt; }
+
+function buildPhoneApps(){
+  const el=document.getElementById("phoneApps");
+  el.innerHTML="";
+  const apps=[
+    { icon:"🚕", label:"Call Taxi", fn: callTaxi },
+    { icon:"🍕", label:"Order Food", fn: orderFood },
+    { icon:"🚑", label:"Call Ambulance", fn: callAmbulance },
+    { icon:"📰", label:"City News", fn: cityNews },
+  ];
+  if(job&&job.isPolice)  apps.push({ icon:"🚓", label:"Request Backup", fn: requestBackup });
+  if(job&&job.isCriminal) apps.push({ icon:"💰", label:"Fence Loot", fn: fenceLoot });
+  if(job&&job.name==="Journalist") apps.push({ icon:"📡", label:"File Story", fn: fileStory });
+  apps.forEach(a=>{
+    const btn=document.createElement("button");
+    btn.innerHTML=`<div style="font-size:1.4em">${a.icon}</div><div style="font-size:.75em;margin-top:4px">${a.label}</div>`;
+    btn.style.cssText="background:#1a1a2e;border:1px solid #333;color:#ddd;border-radius:10px;padding:12px 8px;cursor:pointer;font-family:inherit;transition:background .15s;";
+    btn.onmouseover=()=>btn.style.background="#222240";
+    btn.onmouseout=()=>btn.style.background="#1a1a2e";
+    btn.onclick=()=>a.fn();
+    el.appendChild(btn);
+  });
+}
+
+function callTaxi(){
+  if(player.inCar){ phoneMsg("You're already in a vehicle."); return; }
+  const cost=15;
+  if(player.money<cost){ phoneMsg(`Need $${cost} for a taxi.`); return; }
+  player.money-=cost;
+  const nc=spawnCar(player.x,player.y);
+  nc.color="#eab308"; nc.roofColor="#ca8a04";
+  player.inCar=nc; cars.push(nc);
+  log("Taxi arrived — you're riding. Exit with E.");
+  phoneMsg("Taxi on its way! ($15 charged)");
+  togglePhone();
+}
+
+function orderFood(){
+  const cost=12;
+  if(player.money<cost){ phoneMsg(`Need $${cost} to order.`); return; }
+  player.money-=cost; player.hp=Math.min(100,player.hp+30);
+  log("Food delivered — HP +30.");
+  phoneMsg("Delivered! Ate and feel better.");
+  togglePhone();
+}
+
+function callAmbulance(){
+  const cost=80;
+  if(player.hp>=80){ phoneMsg("You look fine — save the $80."); return; }
+  if(player.money<cost){ phoneMsg(`Need $${cost} for ambulance.`); return; }
+  player.money-=cost; player.hp=Math.min(100,player.hp+60);
+  log("Ambulance arrived — HP +60.");
+  phoneMsg("Patched up! ($80 charged)");
+  togglePhone();
+}
+
+function cityNews(){
+  const robberies_active=npcs.filter(n=>n.kind==="robber"&&n.state==="robbing").length;
+  const cops=npcs.filter(n=>n.kind==="cop").length;
+  const msgs=[
+    `📢 ${cops} officers on duty citywide.`,
+    robberies_active>0?`🚨 Active robbery in progress!`:`✅ No active incidents.`,
+    `💰 Your balance: $${player.money}`,
+    `⭐ Rep: ${player.rep}`,
+  ];
+  phoneMsg(msgs.join("  "));
+}
+
+function requestBackup(){
+  for(let i=0;i<2;i++){
+    const p=randRoadPos();
+    const c=spawnCop(p.x,p.y);
+    c.state="chase"; c.target=npcs.find(n=>n.kind==="robber")||null;
+    npcs.push(c);
+  }
+  log("Backup requested — 2 officers en route.");
+  phoneMsg("Backup dispatched!");
+  togglePhone();
+}
+
+function fenceLoot(){
+  if(player.money<=50){ phoneMsg("Nothing worth fencing right now."); return; }
+  const bonus=Math.floor(player.money*.15);
+  player.money+=bonus; player.rep+=2;
+  log(`Fenced loot — +$${bonus}, +2 rep.`);
+  phoneMsg(`Fenced for +$${bonus}!`);
+  togglePhone();
+}
+
+function fileStory(){
+  player.rep+=5; player.money+=60;
+  log("Story filed — +$60, +5 rep.");
+  phoneMsg("Breaking story published! +$60");
+  togglePhone();
+}
+
+// ── Resize / Input ────────────────────────────────────────────────────────────
 function resize(){ cvs.width=window.innerWidth; cvs.height=window.innerHeight; }
-window.addEventListener("keydown",e=>{ keys[e.key]=true; if((e.key==="r"||e.key==="R")&&document.getElementById("splash").style.display==="none"){job=pick(JOBS);startGame();} });
+window.addEventListener("keydown",e=>{
+  keys[e.key]=true;
+  if((e.key==="r"||e.key==="R")&&document.getElementById("splash").style.display==="none"){job=pick(JOBS);startGame();}
+  if((e.key==="p"||e.key==="P")&&document.getElementById("splash").style.display==="none"){ togglePhone(); }
+});
 window.addEventListener("keyup",e=>keys[e.key]=false);
 window.addEventListener("resize",resize);
 
+// ── Splash ────────────────────────────────────────────────────────────────────
 (function(){
   cvs=document.getElementById("c"); ctx=cvs.getContext("2d");
   mcvs=document.getElementById("minimap"); mctx=mcvs.getContext("2d");
