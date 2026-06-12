@@ -3,488 +3,905 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>City Spawn: Random Occupation</title>
+<title>City Spawn</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #1a1a2e; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; }
-  #gameContainer { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  #canvas { border: 2px solid #333; cursor: crosshair; }
-  #hud { position: fixed; top: 10px; left: 10px; z-index: 10; }
-  #jobBadge { background: rgba(0,0,0,0.8); border: 2px solid #gold; padding: 8px 14px; border-radius: 8px; font-size: 14px; font-weight: bold; margin-bottom: 6px; }
-  #stats { background: rgba(0,0,0,0.75); padding: 8px 12px; border-radius: 8px; font-size: 12px; line-height: 1.8; }
-  #eventLog { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.8); padding: 10px; border-radius: 8px; font-size: 11px; max-width: 280px; z-index: 10; }
-  #eventLog div { margin-bottom: 3px; opacity: 0.9; }
-  #controls { position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.75); padding: 10px; border-radius: 8px; font-size: 11px; line-height: 1.7; z-index: 10; }
-  #splash { position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-  #splash h1 { font-size: 2.5em; color: #f0a500; margin-bottom: 10px; text-shadow: 0 0 20px #f0a500; }
-  #splash .sub { color: #aaa; font-size: 1em; margin-bottom: 30px; }
-  #splash .jobReveal { font-size: 1.8em; margin: 20px 0; padding: 16px 32px; border-radius: 12px; background: rgba(255,255,255,0.08); border: 2px solid #555; transition: all 0.4s; }
-  #startBtn { background: #f0a500; color: #111; border: none; padding: 14px 40px; font-size: 1.1em; font-family: inherit; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 20px; }
-  #startBtn:hover { background: #ffc107; transform: scale(1.04); }
-  .taskIndicator { position: fixed; top: 10px; right: 10px; background: rgba(0,0,0,0.8); padding: 10px 14px; border-radius: 8px; font-size: 12px; z-index: 10; max-width: 240px; }
-  .taskIndicator .taskItem { padding: 4px 0; border-bottom: 1px solid #333; }
-  .taskIndicator .taskItem:last-child { border-bottom: none; }
-  #meterBar { width: 120px; height: 8px; background: #333; border-radius: 4px; display: inline-block; vertical-align: middle; }
-  #meterFill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#111; overflow:hidden; font-family:'Courier New',monospace; color:#eee; }
+canvas { display:block; }
+#hud { position:fixed; top:10px; left:10px; z-index:10; pointer-events:none; }
+#jobBadge { padding:7px 14px; border-radius:8px; font-size:13px; font-weight:bold; background:rgba(0,0,0,0.85); border:2px solid #555; margin-bottom:5px; }
+#stats { background:rgba(0,0,0,0.8); padding:8px 12px; border-radius:8px; font-size:12px; line-height:1.9; }
+#wanted { position:fixed; top:10px; left:50%; transform:translateX(-50%); z-index:10; background:rgba(0,0,0,0.85); padding:6px 16px; border-radius:8px; font-size:13px; display:none; }
+#taskPanel { position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.82); padding:10px 13px; border-radius:8px; font-size:11px; max-width:230px; z-index:10; }
+#taskPanel .ti { padding:4px 0; border-bottom:1px solid #222; }
+#taskPanel .ti:last-child { border:none; }
+#log { position:fixed; bottom:10px; left:10px; background:rgba(0,0,0,0.8); padding:9px 12px; border-radius:8px; font-size:11px; max-width:300px; z-index:10; line-height:1.7; }
+#ctrl { position:fixed; bottom:10px; right:10px; background:rgba(0,0,0,0.75); padding:9px 12px; border-radius:8px; font-size:11px; line-height:1.75; z-index:10; }
+#splash { position:fixed; inset:0; background:rgba(0,0,0,0.93); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:100; }
+#splash h1 { font-size:2.6em; color:#f0a500; text-shadow:0 0 20px #f0a500; margin-bottom:8px; }
+.sub { color:#888; font-size:.9em; margin-bottom:24px; }
+#jobReveal { font-size:1.7em; padding:14px 32px; border-radius:12px; background:rgba(255,255,255,0.06); border:2px solid #444; margin-bottom:8px; min-width:280px; text-align:center; }
+#jobDesc { color:#aaa; font-size:.85em; max-width:400px; text-align:center; margin-bottom:22px; min-height:36px; }
+#startBtn { background:#f0a500; color:#111; border:none; padding:13px 38px; font-size:1em; font-family:inherit; border-radius:8px; cursor:pointer; font-weight:bold; }
+#startBtn:hover { background:#ffc107; }
+#minimap { position:fixed; bottom:10px; right:120px; width:72px; height:72px; background:rgba(0,0,0,0.6); border:1px solid #333; border-radius:4px; z-index:10; }
 </style>
 </head>
 <body>
-<div id="gameContainer">
-  <canvas id="canvas"></canvas>
-</div>
+<canvas id="c"></canvas>
+<canvas id="minimap"></canvas>
 
 <div id="hud">
-  <div id="jobBadge">Loading...</div>
+  <div id="jobBadge">…</div>
   <div id="stats">
-    <div>💰 Money: $<span id="money">0</span></div>
-    <div>⭐ Rep: <span id="rep">0</span></div>
-    <div>❤️ Health: <span id="health">100</span>%</div>
-    <div>⏰ Day: <span id="day">1</span> | <span id="timeStr">08:00</span></div>
+    <div>💰 <span id="sMoney">0</span>  &nbsp; ⭐ <span id="sRep">0</span></div>
+    <div>❤️ <span id="sHP">100</span>%  &nbsp; 🔫 <span id="sGun">–</span></div>
+    <div>⏰ Day <span id="sDay">1</span>  <span id="sTime">08:00</span></div>
   </div>
 </div>
 
-<div id="eventLog"><b>📋 Activity Log</b><div id="logEntries"></div></div>
+<div id="wanted">🌟 WANTED: <span id="wStars">☆☆☆</span></div>
 
-<div class="taskIndicator" id="taskPanel">
-  <b>🎯 Active Tasks</b>
-  <div id="taskList"></div>
-</div>
-
-<div id="controls">
+<div id="taskPanel"><b>🎯 Tasks</b><div id="taskList"></div></div>
+<div id="log"><b>📋 Log</b><div id="logLines"></div></div>
+<div id="ctrl">
   <b>Controls</b><br>
-  WASD / Arrows: Move<br>
-  E / Space: Interact<br>
-  R: New shift<br>
-  Esc: Menu
+  WASD / ↑↓←→  Move<br>
+  E / Space  Interact<br>
+  F  Shoot (if armed)<br>
+  R  Reroll job &amp; restart
 </div>
 
 <div id="splash">
   <h1>City Spawn</h1>
-  <div class="sub">You wake up. You have a job. The city needs you.</div>
-  <div class="jobReveal" id="jobReveal">🎲 Rolling occupation...</div>
-  <div id="jobDesc" style="color:#aaa; font-size:0.9em; max-width:400px; text-align:center; margin-top:10px;"></div>
+  <div class="sub">You wake up somewhere in the city. You have a job. Maybe.</div>
+  <div id="jobReveal">🎲 Rolling…</div>
+  <div id="jobDesc"></div>
   <button id="startBtn" onclick="startGame()">Start Shift →</button>
 </div>
 
 <script>
-const TILE = 40;
-const COLS = 28;
-const ROWS = 18;
+// ─── Constants ───────────────────────────────────────────────────────────────
+const T = 40, COLS = 30, ROWS = 20;
+const W = () => cvs.width, H = () => cvs.height;
 
+// ─── Jobs ────────────────────────────────────────────────────────────────────
 const JOBS = [
-  { name: "Police Officer", emoji: "👮", color: "#2196F3", tasks: ["patrol","arrest","ticket","investigate"], desc: "Protect the peace. Respond to crimes, issue tickets, and keep the streets safe." },
-  { name: "Firefighter", emoji: "🚒", color: "#F44336", tasks: ["extinguish","rescue","inspect","drill"], desc: "Fight fires, rescue trapped citizens, and inspect buildings for hazards." },
-  { name: "Paramedic / EMT", emoji: "🚑", color: "#4CAF50", tasks: ["treat","transport","revive","triage"], desc: "Respond to medical emergencies, stabilize patients, and race to the hospital." },
-  { name: "Chef", emoji: "👨‍🍳", color: "#FF9800", tasks: ["cook","deliver","source","manage"], desc: "Run a restaurant kitchen. Cook orders, manage ingredients, delight diners." },
-  { name: "Taxi Driver", emoji: "🚕", color: "#FFEB3B", tasks: ["pickup","dropoff","navigate","rate"], desc: "Drive passengers across the city. Speed matters, but so does safety." },
-  { name: "Construction Worker", emoji: "👷", color: "#795548", tasks: ["build","repair","haul","inspect"], desc: "Build the city brick by brick. Repair infrastructure and haul materials." },
-  { name: "Teacher", emoji: "📚", color: "#9C27B0", tasks: ["lecture","grade","mentor","meeting"], desc: "Educate the next generation. Give lectures, grade papers, and inspire students." },
-  { name: "Mechanic", emoji: "🔧", color: "#607D8B", tasks: ["diagnose","fix","tune","test"], desc: "Fix broken vehicles and machines. No car leaves your shop broken." },
-  { name: "Delivery Driver", emoji: "📦", color: "#00BCD4", tasks: ["load","deliver","sign","reroute"], desc: "Get packages where they need to go, fast. Mind the time windows." },
-  { name: "Doctor", emoji: "🩺", color: "#E91E63", tasks: ["examine","prescribe","operate","consult"], desc: "Run a clinic. Examine patients, prescribe treatments, perform minor procedures." },
-  { name: "Street Vendor", emoji: "🌮", color: "#8BC34A", tasks: ["prepare","sell","restock","advertise"], desc: "Run a food cart. Prepare snacks, sell to passersby, keep up with demand." },
-  { name: "Journalist", emoji: "📰", color: "#FF5722", tasks: ["investigate","photograph","interview","publish"], desc: "Chase the story. Investigate tips, photograph scenes, and publish scoops." },
+  { name:"Police Officer", emoji:"👮", color:"#2196F3",
+    desc:"Arrest robbers, respond to active heists. You get a radio and a badge — no gun at start, grab one at the station.",
+    isPolice:true },
+  { name:"Robber",         emoji:"🥷", color:"#424242",
+    desc:"Rob banks and stores for cash. Avoid cops. Buy a gun at the Gun Shop to resist arrest.",
+    isCriminal:true },
+  { name:"Firefighter",    emoji:"🚒", color:"#F44336",
+    desc:"Fight fires and rescue citizens from burning buildings across the city." },
+  { name:"Paramedic",      emoji:"🚑", color:"#4CAF50",
+    desc:"Race to emergencies. Stabilise patients and transport them to the hospital." },
+  { name:"Chef",           emoji:"👨‍🍳", color:"#FF9800",
+    desc:"Keep the diner running. Cook orders, manage deliveries, satisfy VIPs." },
+  { name:"Taxi Driver",    emoji:"🚕", color:"#FFEB3B",
+    desc:"Pick up fares across the city. Speed matters — so does safety." },
+  { name:"Mechanic",       emoji:"🔧", color:"#607D8B",
+    desc:"Fix broken vehicles around town. No car leaves your garage broken." },
+  { name:"Journalist",     emoji:"📰", color:"#FF5722",
+    desc:"Chase breaking stories. Photograph crimes, interview witnesses, publish scoops." },
 ];
 
-const BUILDINGS = [
-  { id: "station", label: "Station", color: "#455A64" },
-  { id: "hospital", label: "Hospital", color: "#c62828" },
-  { id: "market", label: "Market", color: "#558B2F" },
-  { id: "school", label: "School", color: "#6A1B9A" },
-  { id: "garage", label: "Garage", color: "#4E342E" },
-  { id: "park", label: "Park", color: "#2E7D32" },
-  { id: "diner", label: "Diner", color: "#E65100" },
-  { id: "hotel", label: "Hotel", color: "#1565C0" },
+// ─── Building defs ───────────────────────────────────────────────────────────
+const BDEFS = [
+  { id:"bank",     label:"BANK",       color:"#B8860B", robbable:true,  loot:500, robTime:8  },
+  { id:"store",    label:"Store",      color:"#558B2F", robbable:true,  loot:180, robTime:4  },
+  { id:"jewelry",  label:"Jewelry",    color:"#9C27B0", robbable:true,  loot:350, robTime:6  },
+  { id:"gunshop",  label:"Gun Shop",   color:"#B71C1C", gunshop:true,  gunCost:200           },
+  { id:"station",  label:"Station",    color:"#1565C0", policeSpawn:true                     },
+  { id:"hospital", label:"Hospital",   color:"#c62828", healspot:true                        },
+  { id:"diner",    label:"Diner",      color:"#E65100"                                       },
+  { id:"hotel",    label:"Hotel",      color:"#00695C"                                       },
+  { id:"school",   label:"School",     color:"#6A1B9A"                                       },
+  { id:"park",     label:"Park",       color:"#2E7D32"                                       },
 ];
 
-let job, player, tasks, money, rep, health, day, timeMin, logLines, events, canvas, ctx;
+// ─── State ───────────────────────────────────────────────────────────────────
+let cvs, ctx, mcvs, mctx;
 let keys = {};
-let lastTime = 0;
-let moveTimer = 0;
-let buildingLayout = [];
-let roadMap = [];
-let activeEvents = [];
+let job;
+let player;       // { x,y,px,py,hp,money,rep,armed,wanted,wLevel,tasks }
+let npcs = [];    // { kind:"cop"|"robber", x,y,px,py,hp,state,target,money,armed,timer }
+let bullets = []; // { x,y,vx,vy,owner:"player"|"cop"|"robber",life }
 let particles = [];
-let currentShift = 0;
+let robberies = []; // { bIdx, timer, total, robber(npc) }
+let map, buildings;
+let logLines = [];
+let timeMin, day, lastTs, moveTimer;
+let taskPool = [];
 
-function initMap() {
-  roadMap = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-  buildingLayout = [];
+// ─── Map gen ─────────────────────────────────────────────────────────────────
+function buildMap() {
+  map = Array.from({length:ROWS}, () => Array(COLS).fill(0));
+  // roads
+  [3,8,13,17].forEach(r => { for(let c=0;c<COLS;c++) map[r][c]=1; });
+  [5,11,18,25].forEach(c => { for(let r=0;r<ROWS;r++) map[r][c]=1; });
 
-  // Horizontal roads
-  [4, 9, 14].forEach(r => {
-    for (let c = 0; c < COLS; c++) roadMap[r][c] = 1;
-  });
-  // Vertical roads
-  [6, 13, 20].forEach(c => {
-    for (let r = 0; r < ROWS; r++) roadMap[r][c] = 1;
-  });
-
-  const bPositions = [
-    { x: 1, y: 1, w: 4, h: 2 }, { x: 8, y: 1, w: 4, h: 2 },
-    { x: 15, y: 1, w: 4, h: 2 }, { x: 22, y: 1, w: 5, h: 2 },
-    { x: 1, y: 5, w: 4, h: 3 }, { x: 8, y: 5, w: 4, h: 3 },
-    { x: 15, y: 5, w: 4, h: 3 }, { x: 22, y: 5, w: 5, h: 3 },
-    { x: 1, y: 10, w: 4, h: 3 }, { x: 8, y: 10, w: 4, h: 3 },
-    { x: 15, y: 10, w: 4, h: 3 }, { x: 22, y: 10, w: 5, h: 3 },
-    { x: 1, y: 15, w: 4, h: 2 }, { x: 8, y: 15, w: 4, h: 2 },
-    { x: 15, y: 15, w: 4, h: 2 }, { x: 22, y: 15, w: 5, h: 2 },
+  const slots = [
+    {x:0,y:0,w:4,h:2},{x:6,y:0,w:4,h:2},{x:12,y:0,w:5,h:2},{x:19,y:0,w:5,h:2},{x:26,y:0,w:4,h:2},
+    {x:0,y:4,w:4,h:3},{x:6,y:4,w:4,h:3},{x:12,y:4,w:5,h:3},{x:19,y:4,w:5,h:3},{x:26,y:4,w:4,h:3},
   ];
 
-  BUILDINGS.forEach((b, i) => {
-    const pos = bPositions[i % bPositions.length];
-    buildingLayout.push({ ...b, ...pos });
-    for (let dy = 0; dy < pos.h; dy++) for (let dx = 0; dx < pos.w; dx++) {
-      if (pos.y + dy < ROWS && pos.x + dx < COLS) roadMap[pos.y + dy][pos.x + dx] = 2;
+  buildings = [];
+  BDEFS.forEach((b, i) => {
+    const s = slots[i % slots.length];
+    const bld = {...b, ...s};
+    buildings.push(bld);
+    for(let dy=0;dy<s.h;dy++) for(let dx=0;dx<s.w;dx++) {
+      const rr=s.y+dy, cc=s.x+dx;
+      if(rr<ROWS&&cc<COLS) map[rr][cc]=2;
     }
   });
 }
 
-function spawnTask() {
-  const taskTypes = {
-    "Police Officer":    ["🚨 Crime reported near market","🚗 Speeding vehicle on Main St","🔎 Suspicious activity at hotel","👊 Fight near the diner","📞 Noise complaint at station"],
-    "Firefighter":       ["🔥 Structure fire at hotel","💨 Smoke in the school","🚒 Car fire on highway","🏚️ Hazmat spill near garage","⚠️ Fire alarm at hospital"],
-    "Paramedic / EMT":   ["🤕 Injury near the park","❤️‍🩹 Cardiac event at diner","🚑 Multi-car accident","😵 Heat exhaustion at market","🩸 Trauma at construction site"],
-    "Chef":              ["🍳 Rush of diners — cook 8 meals","🥩 Ingredient delivery incoming","⭐ VIP table needs special menu","🧑‍🍳 Sous chef called sick — fill in","🔥 Kitchen fire — act fast!"],
-    "Taxi Driver":       ["🙋 Passenger at hotel","⏰ Late passenger — airport run","🗺️ Tourist needs city tour","🌧️ Busy night — 5 fares waiting","💼 Business exec needs silence"],
-    "Construction Worker":["🔨 Foundation cracks at school","🏗️ Delivery of steel beams","⚠️ Safety violation reported","🚧 Road resurfacing needed","🪟 Window repair at hospital"],
-    "Teacher":           ["📝 Midterm exam — 30 papers","🎤 Parent-teacher conference","🧑‍🎓 Struggling student needs help","🏆 Science fair prep","📢 Staff meeting at station"],
-    "Mechanic":          ["🔧 Engine failure: blue sedan","🛞 4 blown tires at market","💡 Electrical fault in ambulance","⛽ Fuel leak at garage","🔩 Transmission rebuild"],
-    "Delivery Driver":   ["📦 Urgent medical delivery","🕐 3 packages — 20 min window","🌡️ Cold-chain food order","❓ Wrong address — reroute","📬 Night delivery run: 6 stops"],
-    "Doctor":            ["🩺 Chest pain in waiting room","💊 Prescription review x10","🔬 Lab results need follow-up","🤒 Flu outbreak at school","🩹 Minor surgery scheduled"],
-    "Street Vendor":     ["😋 Lunch rush: 15 customers","🥬 Restock — market is open","🌧️ Rain — move cart inside","⭐ Food critic spotted nearby","🎉 Festival nearby — huge demand"],
-    "Journalist":        ["📸 Breaking: fire at hotel","🎙️ Interview the Police Chief","🕵️ Corruption tip — investigate","📰 Deadline in 30 min","🌐 Viral video from park"],
+function roadTiles() {
+  const r=[];
+  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(map[y][x]===1) r.push({x,y});
+  return r;
+}
+
+function randRoad() {
+  const r=roadTiles();
+  return r[Math.floor(Math.random()*r.length)];
+}
+
+// ─── NPC factory ─────────────────────────────────────────────────────────────
+function spawnCop(x,y) {
+  const patrol = [];
+  for(let i=0;i<4;i++) { const p=randRoad(); patrol.push({x:p.x,y:p.y}); }
+  return { kind:"cop", x,y, px:x*T+T/2, py:y*T+T/2,
+           hp:100, state:"patrol", target:null, patrolPts:patrol, patrolIdx:0,
+           armed:true, money:0, timer:0, moveTimer:0 };
+}
+
+function spawnRobberNPC(x,y) {
+  const target = buildings.filter(b=>b.robbable)[Math.floor(Math.random()*buildings.filter(b=>b.robbable).length)];
+  return { kind:"robber", x,y, px:x*T+T/2, py:y*T+T/2,
+           hp:100, state:"approach", target, armed:Math.random()>0.6,
+           money:0, timer:0, moveTimer:0, escaping:false };
+}
+
+// ─── NPC task text ────────────────────────────────────────────────────────────
+const TASK_TEXT = {
+  "Police Officer": ["🚨 Crime reported near market","🚗 Speeding vehicle spotted","🔎 Suspicious activity at hotel","👊 Fight near the diner","📞 Noise complaint at station","🏦 Bank robbery in progress!","🏪 Store being robbed now!"],
+  "Robber":         ["🏦 Scope out the bank","🏪 Hit the convenience store","💎 Jewelry smash-and-grab","🔫 Restock ammo at the shop","🚗 Steal a getaway car","👀 Tail the police patrol"],
+  "Firefighter":    ["🔥 Structure fire at hotel","💨 Smoke in the school","🚒 Car fire on road","⚠️ Hazmat spill near garage"],
+  "Paramedic":      ["🤕 Injury near park","❤️ Cardiac event at diner","🚑 Multi-car accident","😵 Heat exhaustion at market"],
+  "Chef":           ["🍳 Rush of diners — cook 8 meals","🥩 Ingredient delivery incoming","⭐ VIP table — special menu","🔥 Kitchen fire — act fast!"],
+  "Taxi Driver":    ["🙋 Passenger at hotel","⏰ Late passenger — airport run","🗺️ Tourist needs city tour","🌧️ Busy night — 5 fares"],
+  "Mechanic":       ["🔧 Engine failure: blue sedan","🛞 4 blown tires at market","💡 Electrical fault in ambulance","⛽ Fuel leak at garage"],
+  "Journalist":     ["📸 Breaking: fire at hotel","🎙️ Interview the Police Chief","🕵️ Corruption tip — investigate","📰 Deadline in 30 min"],
+};
+
+function makeTask() {
+  const pool = TASK_TEXT[job.name] || ["📋 General city duty"];
+  const text = pool[Math.floor(Math.random()*pool.length)];
+  const reward = 80 + Math.floor(Math.random()*140);
+  const ttl = 60 + Math.random()*60;
+  return { text, reward, ttl, done:false };
+}
+
+// ─── Log ──────────────────────────────────────────────────────────────────────
+function log(msg) {
+  logLines.unshift(msg);
+  if(logLines.length>6) logLines.pop();
+  document.getElementById("logLines").innerHTML = logLines.slice(0,5).map(l=>`<div>${l}</div>`).join("");
+}
+
+// ─── Particle ─────────────────────────────────────────────────────────────────
+function particle(x,y,text,color="#FFD700") {
+  particles.push({x,y,text,color,life:1.4,vy:-28});
+}
+
+// ─── Init / Start ─────────────────────────────────────────────────────────────
+function startGame() {
+  document.getElementById("splash").style.display="none";
+  buildMap();
+
+  const start = randRoad();
+  player = {
+    x:start.x, y:start.y, px:start.x*T+T/2, py:start.y*T+T/2,
+    hp:100, money:0, rep:0, armed:false, wLevel:0,
+    tasks:[], interactCooldown:0
   };
 
-  const pool = taskTypes[job.name] || ["📋 General city duty"];
-  const txt = pool[Math.floor(Math.random() * pool.length)];
-  const reward = 80 + Math.floor(Math.random() * 120);
-  const urgency = Math.random() > 0.5 ? "urgent" : "normal";
-  return { id: Date.now() + Math.random(), text: txt, reward, urgency, ttl: urgency === "urgent" ? 45 : 90, progress: 0, done: false };
+  npcs=[]; bullets=[]; particles=[]; robberies=[]; logLines=[];
+  timeMin=480; day=1; lastTs=0; moveTimer=0;
+
+  // spawn 3 cops
+  const station = buildings.find(b=>b.policeSpawn);
+  for(let i=0;i<3;i++) {
+    const p = station ? {x:station.x+i,y:station.y} : randRoad();
+    npcs.push(spawnCop(p.x, p.y));
+  }
+  // spawn 2 robbers
+  for(let i=0;i<2;i++) {
+    const p=randRoad();
+    npcs.push(spawnRobberNPC(p.x,p.y));
+  }
+
+  player.tasks = [makeTask(), makeTask()];
+  log(`🏙️ Shift started. You are ${job.emoji} ${job.name}.`);
+  if(job.isPolice) log("👮 Tip: arrest robbers with E. Grab a gun at the Station.");
+  if(job.isCriminal) log("🥷 Tip: rob buildings with E. Buy a gun at the Gun Shop ($200).");
+
+  document.getElementById("wanted").style.display = job.isCriminal ? "block" : "none";
+
+  requestAnimationFrame(loop);
 }
 
-function addLog(msg) {
-  logLines.unshift(msg);
-  if (logLines.length > 5) logLines.pop();
-  const el = document.getElementById("logEntries");
-  el.innerHTML = logLines.map(l => `<div>${l}</div>`).join("");
-}
-
-function spawnEvent() {
-  const road = [];
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (roadMap[r][c] === 1) road.push({ x: c, y: r });
-  if (!road.length) return;
-  const pos = road[Math.floor(Math.random() * road.length)];
-  const types = ["fire 🔥", "crash 💥", "person 🙋", "hazard ⚠️", "emergency 🚨"];
-  const t = types[Math.floor(Math.random() * types.length)];
-  activeEvents.push({ x: pos.x, y: pos.y, type: t, ttl: 20 + Math.random() * 30, radius: 1.5, pulse: 0 });
-}
-
-function addParticle(wx, wy, color, text) {
-  particles.push({ x: wx, y: wy, color, text, life: 1.5, vy: -30 });
-}
-
-function startGame() {
-  document.getElementById("splash").style.display = "none";
-  initMap();
-  player = { x: 13, y: 9, px: 13 * TILE + TILE / 2, py: 9 * TILE + TILE / 2 };
-  tasks = [spawnTask(), spawnTask()];
-  money = 0; rep = 0; health = 100; day = 1; timeMin = 480;
-  logLines = [];
-  activeEvents = [];
-  particles = [];
-  currentShift = 0;
-  addLog(`🏙️ New shift began. You are a ${job.emoji} ${job.name}.`);
-  spawnEvent();
-  requestAnimationFrame(gameLoop);
-}
-
-function gameLoop(ts) {
-  const dt = Math.min((ts - lastTime) / 1000, 0.1);
-  lastTime = ts;
+// ─── Game loop ────────────────────────────────────────────────────────────────
+function loop(ts) {
+  const dt = Math.min((ts-lastTs)/1000, 0.1);
+  lastTs=ts;
   update(dt);
-  render();
-  requestAnimationFrame(gameLoop);
+  draw();
+  requestAnimationFrame(loop);
 }
 
+// ─── Movement helper ──────────────────────────────────────────────────────────
+function tryMove(entity, dx, dy) {
+  const nx=entity.x+dx, ny=entity.y+dy;
+  if(nx<0||nx>=COLS||ny<0||ny>=ROWS) return false;
+  if(map[ny][nx]===2) return false;
+  entity.x=nx; entity.y=ny;
+  return true;
+}
+
+function stepToward(entity, tx, ty, speed) {
+  entity.moveTimer = (entity.moveTimer||0) - 0.001;
+  if(entity.moveTimer > 0) return;
+  const dx=tx-entity.x, dy=ty-entity.y;
+  const dist=Math.abs(dx)+Math.abs(dy);
+  if(dist===0) return;
+  if(Math.abs(dx)>=Math.abs(dy)) tryMove(entity, Math.sign(dx),0) || tryMove(entity, 0, Math.sign(dy));
+  else                           tryMove(entity, 0,Math.sign(dy)) || tryMove(entity, Math.sign(dx),0);
+  entity.moveTimer = speed;
+}
+
+// ─── Update ───────────────────────────────────────────────────────────────────
 function update(dt) {
-  // Time
-  timeMin += dt * 4;
-  if (timeMin >= 1440) { timeMin = 480; day++; addLog(`🌅 Day ${day} begins.`); }
+  timeMin+=dt*3;
+  if(timeMin>=1440){timeMin=480;day++;log(`🌅 Day ${day} begins.`);}
 
-  // Movement
-  moveTimer -= dt;
-  if (moveTimer <= 0) {
-    let dx = 0, dy = 0;
-    if (keys["ArrowLeft"]  || keys["a"] || keys["A"]) dx = -1;
-    if (keys["ArrowRight"] || keys["d"] || keys["D"]) dx =  1;
-    if (keys["ArrowUp"]    || keys["w"] || keys["W"]) dy = -1;
-    if (keys["ArrowDown"]  || keys["s"] || keys["S"]) dy =  1;
-    if (dx !== 0 || dy !== 0) {
-      const nx = player.x + dx, ny = player.y + dy;
-      if (nx >= 0 && nx < COLS && ny >= 0 && ny < ROWS && roadMap[ny][nx] !== 2) {
-        player.x = nx; player.y = ny;
+  updatePlayer(dt);
+  updateNPCs(dt);
+  updateBullets(dt);
+  updateRobberies(dt);
+  updateParticles(dt);
+  updateTasks(dt);
+  updateHUD();
+}
+
+function updatePlayer(dt) {
+  moveTimer-=dt;
+  if(moveTimer<=0) {
+    let dx=0,dy=0;
+    if(keys["ArrowLeft"] ||keys["a"]||keys["A"]) dx=-1;
+    if(keys["ArrowRight"]||keys["d"]||keys["D"]) dx= 1;
+    if(keys["ArrowUp"]   ||keys["w"]||keys["W"]) dy=-1;
+    if(keys["ArrowDown"] ||keys["s"]||keys["S"]) dy= 1;
+    if(dx||dy){ tryMove(player,dx,dy); moveTimer=0.12; }
+  }
+  // smooth pixel pos
+  player.px+=(player.x*T+T/2-player.px)*Math.min(dt*16,1);
+  player.py+=(player.y*T+T/2-player.py)*Math.min(dt*16,1);
+
+  // interact
+  player.interactCooldown-=dt;
+  if((keys["e"]||keys["E"]||keys[" "]) && player.interactCooldown<=0) {
+    keys["e"]=keys["E"]=keys[" "]=false;
+    interact();
+    player.interactCooldown=0.6;
+  }
+
+  // shoot
+  if(keys["f"]||keys["F"]) {
+    keys["f"]=keys["F"]=false;
+    if(player.armed) shoot(player,"player");
+    else log("❌ No weapon. Get one at the Gun Shop.");
+  }
+
+  // cop chasing player (if wanted)
+  if(player.wLevel>0) {
+    npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").forEach(cop=>{
+      const d=dist(cop,player);
+      if(d<5){ cop.state="chase"; cop.target=player; }
+    });
+  }
+
+  // arrest player by cop
+  npcs.filter(n=>n.kind==="cop"&&n.state==="chase"&&n.target===player).forEach(cop=>{
+    if(dist(cop,player)<1.5) {
+      if(!player.armed) {
+        const fine=Math.floor(player.money*0.4);
+        player.money=Math.max(0,player.money-fine);
+        player.wLevel=0; player.armed=false;
+        cop.state="patrol"; cop.target=null;
+        log(`🚔 Arrested! Lost $${fine} and your weapon.`);
+        particle(player.px,player.py,"🚔 BUSTED","#F44336");
       }
-      moveTimer = 0.13;
-    }
-  }
-  player.px += ((player.x * TILE + TILE / 2) - player.px) * dt * 14;
-  player.py += ((player.y * TILE + TILE / 2) - player.py) * dt * 14;
-
-  // Interact
-  if (keys["e"] || keys["E"] || keys[" "]) {
-    keys["e"] = keys["E"] = keys[" "] = false;
-    interactNearby();
-  }
-
-  // Tasks ttl
-  tasks.forEach(t => {
-    if (!t.done) {
-      t.ttl -= dt;
-      if (t.ttl <= 0) { addLog(`⏰ Task expired: ${t.text.slice(0, 28)}...`); t.done = true; rep = Math.max(0, rep - 5); health = Math.max(0, health - 2); }
     }
   });
-  tasks = tasks.filter(t => !t.done);
-  while (tasks.length < 2) tasks.push(spawnTask());
 
-  // Events
-  activeEvents.forEach(e => { e.ttl -= dt; e.pulse += dt * 3; });
-  activeEvents = activeEvents.filter(e => e.ttl > 0);
-  if (Math.random() < dt * 0.1) spawnEvent();
-
-  // Particles
-  particles.forEach(p => { p.life -= dt; p.vy -= dt * 8; p.y += p.vy * dt; });
-  particles = particles.filter(p => p.life > 0);
-
-  updateHUD();
-  updateTaskPanel();
+  // heal at hospital
+  const hosp=buildings.find(b=>b.healspot);
+  if(hosp && nearBuilding(player,hosp,2) && player.hp<100 && player.money>=50) {
+    player.hp=Math.min(100,player.hp+dt*20);
+    player.money-=dt*10;
+  }
 }
 
-function interactNearby() {
-  // Check events nearby
-  let acted = false;
-  for (let i = activeEvents.length - 1; i >= 0; i--) {
-    const e = activeEvents[i];
-    const dist = Math.hypot(e.x - player.x, e.y - player.y);
-    if (dist < 2.5) {
-      const earn = 50 + Math.floor(Math.random() * 80);
-      money += earn;
-      rep += 3;
-      addLog(`✅ Responded to ${e.type} — earned $${earn}`);
-      addParticle(e.x * TILE, e.y * TILE, "#4CAF50", `+$${earn}`);
-      activeEvents.splice(i, 1);
-      acted = true;
-      break;
-    }
-  }
-
-  // Check buildings
-  if (!acted) {
-    for (const b of buildingLayout) {
-      const bCx = b.x + b.w / 2, bCy = b.y + b.h / 2;
-      if (Math.abs(player.x - bCx) < b.w / 2 + 1.5 && Math.abs(player.y - bCy) < b.h / 2 + 1.5) {
-        const t = tasks[0];
-        if (t) {
-          const earn = t.reward;
-          money += earn;
-          rep += 8;
-          addLog(`🏢 Completed at ${b.label}: ${t.text.slice(0, 24)}... +$${earn}`);
-          addParticle(player.px, player.py - 20, "#FFD700", `+$${earn} ⭐`);
-          t.done = true;
-          acted = true;
-        }
-        break;
+function interact() {
+  // Check nearby NPC robbers (police can arrest)
+  if(job.isPolice) {
+    for(const npc of npcs) {
+      if(npc.kind==="robber" && dist(npc,player)<2.5) {
+        const earn=120+Math.floor(npc.money);
+        player.money+=earn; player.rep+=10;
+        log(`🚔 Arrested robber! +$${earn}`);
+        particle(player.px,player.py-20,`+$${earn} ⭐`,"#4CAF50");
+        // respawn them elsewhere
+        const p=randRoad();
+        Object.assign(npc, spawnRobberNPC(p.x,p.y));
+        return;
       }
     }
   }
 
-  if (!acted) addLog("Nothing to interact with nearby.");
+  // Gun shop
+  const gs=buildings.find(b=>b.gunshop);
+  if(gs && nearBuilding(player,gs,2)) {
+    if(player.armed){ log("🔫 Already armed."); return; }
+    if(player.money>=gs.gunCost){
+      player.money-=gs.gunCost; player.armed=true;
+      log(`🔫 Bought a gun at Gun Shop (-$${gs.gunCost})`);
+      particle(player.px,player.py-20,"🔫 Armed!","#F44336");
+    } else log(`💸 Need $${gs.gunCost} for a gun. Have $${player.money}.`);
+    return;
+  }
+
+  // Police station — cops can pick up gun free
+  if(job.isPolice) {
+    const st=buildings.find(b=>b.policeSpawn);
+    if(st && nearBuilding(player,st,2) && !player.armed) {
+      player.armed=true;
+      log("🔫 Picked up service weapon at Station.");
+      particle(player.px,player.py-20,"🔫 Armed!","#2196F3");
+      return;
+    }
+  }
+
+  // Robbers rob buildings
+  if(job.isCriminal) {
+    for(const b of buildings.filter(b=>b.robbable)) {
+      if(nearBuilding(player,b,2)) {
+        const active=robberies.find(r=>buildings[r.bIdx]===b);
+        if(active){ log("⏳ Already being robbed…"); return; }
+        robberies.push({bIdx:buildings.indexOf(b), timer:0, total:b.robTime, robber:null, isPlayer:true});
+        log(`💰 Robbing ${b.label}… stay nearby! (${b.robTime}s)`);
+        return;
+      }
+    }
+  }
+
+  // Generic task completion near any building
+  const t=player.tasks.find(t=>!t.done);
+  if(t) {
+    for(const b of buildings) {
+      if(nearBuilding(player,b,2)) {
+        player.money+=t.reward; player.rep+=6;
+        log(`✅ ${b.label}: ${t.text.slice(0,28)}… +$${t.reward}`);
+        particle(player.px,player.py-20,`+$${t.reward}`,"#FFD700");
+        t.done=true;
+        return;
+      }
+    }
+  }
+
+  // Respond to active events near player
+  for(let i=npcs.length-1;i>=0;i--) {
+    if(npcs[i].kind==="robber" && dist(npcs[i],player)<2.5 && !job.isPolice) {
+      log("⚠️ There's a robber nearby!");
+      return;
+    }
+  }
+  log("Nothing to interact with nearby.");
 }
 
-function render() {
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+function shoot(entity, owner) {
+  // shoot toward nearest enemy
+  let targets;
+  if(owner==="player") targets = job.isPolice ? npcs.filter(n=>n.kind==="robber") : npcs.filter(n=>n.kind==="cop");
+  else if(owner==="cop") targets = [player,...npcs.filter(n=>n.kind==="robber")].filter(e=>e!==entity);
+  else targets = [player,...npcs.filter(n=>n.kind==="cop")].filter(e=>e!==entity);
 
-  const offX = W / 2 - player.px;
-  const offY = H / 2 - player.py;
+  let best=null, bestD=999;
+  for(const t of targets){ const d=dist(entity,t); if(d<bestD){bestD=d;best=t;} }
+  if(!best||bestD>8) return;
+
+  const dx=best.x-entity.x, dy=best.y-entity.y;
+  const len=Math.hypot(dx,dy)||1;
+  const spd=12;
+  bullets.push({
+    x:entity.px, y:entity.py,
+    vx:(dx/len)*spd*T, vy:(dy/len)*spd*T,
+    owner, life:1.2
+  });
+}
+
+function updateNPCs(dt) {
+  // NPC police
+  npcs.filter(n=>n.kind==="cop").forEach(cop=>{
+    cop.timer-=dt;
+
+    if(cop.state==="patrol") {
+      const pt=cop.patrolPts[cop.patrolIdx];
+      stepToward(cop, pt.x, pt.y, 0.22);
+      if(cop.x===pt.x&&cop.y===pt.y) cop.patrolIdx=(cop.patrolIdx+1)%cop.patrolPts.length;
+
+      // detect robbers
+      for(const npc of npcs.filter(n=>n.kind==="robber")) {
+        if(dist(cop,npc)<5){ cop.state="chase"; cop.target=npc; break; }
+      }
+      // detect wanted player
+      if(player.wLevel>0 && dist(cop,player)<5){ cop.state="chase"; cop.target=player; }
+    }
+
+    if(cop.state==="chase") {
+      const tgt=cop.target;
+      if(!tgt || (tgt.hp!==undefined&&tgt.hp<=0)) { cop.state="patrol"; cop.target=null; return; }
+      const d=dist(cop,tgt);
+      if(d>10){ cop.state="patrol"; cop.target=null; return; }
+      stepToward(cop, tgt.x, tgt.y, 0.15);
+
+      // shoot at robber NPC
+      if(tgt!==player && tgt.kind==="robber" && cop.armed && cop.timer<=0 && d<6) {
+        shootNPC(cop,"cop",tgt);
+        cop.timer=1.2;
+      }
+      // shoot at wanted player
+      if(tgt===player && player.wLevel>=2 && player.armed && cop.timer<=0 && d<5) {
+        shootNPC(cop,"cop",player);
+        cop.timer=1.5;
+      }
+      // arrest robber npc if unarmed/close
+      if(tgt!==player && d<1.5 && !tgt.armed) {
+        log(`🚔 Cop arrested a robber NPC`);
+        const p=randRoad(); Object.assign(tgt, spawnRobberNPC(p.x,p.y));
+        cop.state="patrol"; cop.target=null;
+      }
+    }
+
+    cop.px+=(cop.x*T+T/2-cop.px)*Math.min(dt*12,1);
+    cop.py+=(cop.y*T+T/2-cop.py)*Math.min(dt*12,1);
+  });
+
+  // NPC robbers
+  npcs.filter(n=>n.kind==="robber").forEach(rob=>{
+    rob.timer-=dt;
+    const b=rob.target;
+
+    if(rob.state==="approach" && b) {
+      const bx=b.x+Math.floor(b.w/2), by=b.y+b.h;
+      stepToward(rob, bx, by, 0.25);
+      if(rob.x===bx && rob.y===by) { rob.state="robbing"; rob.timer=b.robTime||5; }
+    }
+
+    if(rob.state==="robbing") {
+      if(rob.timer<=0) {
+        rob.money+=b.loot||100;
+        log(`💰 NPC robber hit the ${b.label}! ($${b.loot})`);
+        rob.state="escape";
+        rob.escTarget=randRoad();
+        // police react
+        npcs.filter(n=>n.kind==="cop"&&n.state==="patrol").slice(0,1).forEach(cop=>{
+          cop.state="chase"; cop.target=rob;
+        });
+      }
+    }
+
+    if(rob.state==="escape") {
+      if(rob.escTarget) stepToward(rob, rob.escTarget.x, rob.escTarget.y, 0.2);
+      if(rob.timer<=0) { // pick new target after escaping
+        const newB=buildings.filter(b=>b.robbable)[Math.floor(Math.random()*buildings.filter(b=>b.robbable).length)];
+        rob.target=newB; rob.state="approach"; rob.timer=10+Math.random()*15;
+      }
+    }
+
+    // flee from nearby cop
+    const nearCop=npcs.find(n=>n.kind==="cop"&&dist(n,rob)<3);
+    if(nearCop && rob.state!=="escape") {
+      rob.state="escape";
+      const dx=rob.x-nearCop.x, dy=rob.y-nearCop.y;
+      const len=Math.hypot(dx,dy)||1;
+      rob.escTarget={ x:Math.round(rob.x+dx/len*6), y:Math.round(rob.y+dy/len*6) };
+      rob.escTarget.x=Math.max(0,Math.min(COLS-1,rob.escTarget.x));
+      rob.escTarget.y=Math.max(0,Math.min(ROWS-1,rob.escTarget.y));
+    }
+
+    // shoot at pursuing cop
+    if(rob.armed && rob.state==="escape" && rob.timer<=0) {
+      const chaseCop=npcs.find(n=>n.kind==="cop"&&n.state==="chase"&&n.target===rob);
+      if(chaseCop && dist(rob,chaseCop)<5) { shootNPC(rob,"robber",chaseCop); rob.timer=1.8; }
+    }
+
+    rob.px+=(rob.x*T+T/2-rob.px)*Math.min(dt*12,1);
+    rob.py+=(rob.y*T+T/2-rob.py)*Math.min(dt*12,1);
+  });
+}
+
+function shootNPC(from, owner, at) {
+  const dx=at.x-from.x, dy=at.y-from.y, len=Math.hypot(dx,dy)||1;
+  bullets.push({x:from.px,y:from.py,vx:(dx/len)*11*T,vy:(dy/len)*11*T,owner,life:0.9,target:at});
+}
+
+function updateBullets(dt) {
+  for(let i=bullets.length-1;i>=0;i--) {
+    const b=bullets[i];
+    b.x+=b.vx*dt; b.y+=b.vy*dt; b.life-=dt;
+    if(b.life<=0){bullets.splice(i,1);continue;}
+
+    // hit player
+    if(b.owner!=="player") {
+      const pd=Math.hypot(b.x-player.px, b.y-player.py);
+      if(pd<16) {
+        player.hp=Math.max(0,player.hp-25);
+        particle(player.px,player.py-20,"💥 -25hp","#F44336");
+        bullets.splice(i,1);
+        if(player.hp<=0) { log("💀 You died! Respawning…"); respawnPlayer(); }
+        continue;
+      }
+    }
+
+    // hit NPC cops
+    if(b.owner==="player"||b.owner==="robber") {
+      for(let j=npcs.length-1;j>=0;j--) {
+        const n=npcs[j];
+        if(n.kind!=="cop") continue;
+        const nd=Math.hypot(b.x-n.px, b.y-n.py);
+        if(nd<16) {
+          n.hp-=30;
+          particle(n.px,n.py-20,"💥","#F44336");
+          bullets.splice(i,1);
+          if(n.hp<=0) {
+            log("⚠️ A cop was shot! Backup responding.");
+            player.wLevel=Math.min(3,player.wLevel+1);
+            const p=randRoad(); Object.assign(n,spawnCop(p.x,p.y));
+          }
+          break;
+        }
+      }
+    }
+
+    // hit NPC robbers
+    if(b.owner==="player"||b.owner==="cop") {
+      for(let j=npcs.length-1;j>=0;j--) {
+        const n=npcs[j];
+        if(n.kind!=="robber") continue;
+        const nd=Math.hypot(b.x-n.px, b.y-n.py);
+        if(nd<16) {
+          n.hp-=30; n.armed=false;
+          particle(n.px,n.py-20,"💥","#FF9800");
+          bullets.splice(i,1);
+          if(n.hp<=0) {
+            if(b.owner==="player" && job.isPolice) { player.money+=80; player.rep+=5; log("🚔 Robber neutralised +$80"); }
+            const p=randRoad(); Object.assign(n,spawnRobberNPC(p.x,p.y));
+          }
+          break;
+        }
+      }
+    }
+  }
+}
+
+function updateRobberies(dt) {
+  for(let i=robberies.length-1;i>=0;i--) {
+    const r=robberies[i];
+    const b=buildings[r.bIdx];
+    r.timer+=dt;
+
+    if(r.isPlayer) {
+      // check player is still nearby
+      if(!nearBuilding(player,b,2.5)) { log("⚠️ Moved away — robbery cancelled."); robberies.splice(i,1); continue; }
+      if(r.timer>=r.total) {
+        const earn=b.loot;
+        player.money+=earn; player.wLevel=Math.min(3,player.wLevel+1);
+        log(`💰 Robbed ${b.label}! +$${earn} ⭐ Wanted ${player.wLevel}`);
+        particle(player.px,player.py-24,`+$${earn} 🌟`,"#FFD700");
+        robberies.splice(i,1);
+        // alert nearest cop
+        npcs.filter(n=>n.kind==="cop").slice(0,1).forEach(cop=>{ cop.state="chase"; cop.target=player; });
+        continue;
+      }
+      b._robPct=r.timer/r.total;
+    } else {
+      if(r.timer>=r.total) robberies.splice(i,1);
+    }
+  }
+}
+
+function updateParticles(dt) {
+  particles.forEach(p=>{ p.life-=dt; p.y+=p.vy*dt; p.vy+=dt*20; });
+  particles=particles.filter(p=>p.life>0);
+}
+
+function updateTasks(dt) {
+  player.tasks.forEach(t=>{ if(!t.done){ t.ttl-=dt; if(t.ttl<=0){ t.done=true; player.rep=Math.max(0,player.rep-3); log(`⏰ Task expired.`); } } });
+  player.tasks=player.tasks.filter(t=>!t.done);
+  while(player.tasks.length<2) player.tasks.push(makeTask());
+}
+
+function respawnPlayer() {
+  const p=randRoad();
+  player.x=p.x; player.y=p.y; player.px=p.x*T+T/2; player.py=p.y*T+T/2;
+  player.hp=100; player.armed=false; player.wLevel=0;
+  const fine=Math.floor(player.money*0.5);
+  player.money=Math.max(0,player.money-fine);
+  log(`🏥 Respawned at hospital. Lost $${fine}.`);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function dist(a,b){ return Math.hypot(a.x-b.x,a.y-b.y); }
+function nearBuilding(entity,b,range) {
+  return Math.abs(entity.x-(b.x+b.w/2))<b.w/2+range && Math.abs(entity.y-(b.y+b.h/2))<b.h/2+range;
+}
+
+// ─── HUD ──────────────────────────────────────────────────────────────────────
+function updateHUD() {
+  const h=Math.floor(timeMin/60).toString().padStart(2,"0");
+  const m=Math.floor(timeMin%60).toString().padStart(2,"0");
+  document.getElementById("sMoney").textContent=player.money;
+  document.getElementById("sRep").textContent=player.rep;
+  document.getElementById("sHP").textContent=Math.ceil(player.hp);
+  document.getElementById("sGun").textContent=player.armed?"🔫 Armed":"–";
+  document.getElementById("sDay").textContent=day;
+  document.getElementById("sTime").textContent=`${h}:${m}`;
+  document.getElementById("jobBadge").textContent=`${job.emoji} ${job.name}`;
+  document.getElementById("jobBadge").style.borderColor=job.color;
+
+  // wanted stars
+  if(job.isCriminal) {
+    const stars=["☆☆☆","⭐☆☆","⭐⭐☆","⭐⭐⭐"][player.wLevel];
+    document.getElementById("wStars").textContent=stars;
+    document.getElementById("wanted").style.color=["#aaa","#FF9800","#F44336","#B71C1C"][player.wLevel];
+  }
+
+  // tasks
+  document.getElementById("taskList").innerHTML=player.tasks.slice(0,2).map(t=>{
+    const tc=t.ttl<20?"#f44":t.ttl<40?"#ff9800":"#8bc34a";
+    return `<div class="ti">${t.text}<br><span style="color:${tc};font-size:10px">⏱${Math.max(0,Math.ceil(t.ttl))}s 💰$${t.reward}</span></div>`;
+  }).join("");
+
+  // robbery progress
+  const rp=robberies.find(r=>r.isPlayer);
+  if(rp) {
+    const b=buildings[rp.bIdx];
+    const pct=Math.round((rp.timer/rp.total)*100);
+    document.getElementById("taskList").innerHTML+=`<div class="ti" style="color:#FFD700">🏦 Robbing ${b.label}: ${pct}%</div>`;
+  }
+}
+
+// ─── Draw ─────────────────────────────────────────────────────────────────────
+function draw() {
+  const cw=cvs.width, ch=cvs.height;
+  ctx.clearRect(0,0,cw,ch);
+
+  const ox=cw/2-player.px, oy=ch/2-player.py;
   ctx.save();
-  ctx.translate(offX, offY);
+  ctx.translate(ox,oy);
 
-  // Draw ground
-  ctx.fillStyle = "#1b5e20";
-  ctx.fillRect(0, 0, COLS * TILE, ROWS * TILE);
-
-  // Roads
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
-    if (roadMap[r][c] === 1) {
-      ctx.fillStyle = "#37474F";
-      ctx.fillRect(c * TILE, r * TILE, TILE, TILE);
-      // lane markings
-      ctx.strokeStyle = "#546E7A";
-      ctx.setLineDash([6, 8]);
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(c * TILE + TILE / 2, r * TILE);
-      ctx.lineTo(c * TILE + TILE / 2, r * TILE + TILE);
-      ctx.stroke();
-      ctx.setLineDash([]);
-    }
-  }
-
-  // Buildings
-  for (const b of buildingLayout) {
-    ctx.fillStyle = b.color;
-    ctx.fillRect(b.x * TILE + 2, b.y * TILE + 2, b.w * TILE - 4, b.h * TILE - 4);
-    ctx.strokeStyle = "#000";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(b.x * TILE + 2, b.y * TILE + 2, b.w * TILE - 4, b.h * TILE - 4);
-    // Windows
-    ctx.fillStyle = "rgba(255,255,180,0.5)";
-    for (let wy = 0; wy < b.h; wy++) for (let wx = 0; wx < b.w; wx++) {
-      ctx.fillRect(b.x * TILE + wx * TILE + 8, b.y * TILE + wy * TILE + 8, 8, 8);
-      ctx.fillRect(b.x * TILE + wx * TILE + 22, b.y * TILE + wy * TILE + 8, 8, 8);
-    }
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 10px Courier New";
-    ctx.textAlign = "center";
-    ctx.fillText(b.label, (b.x + b.w / 2) * TILE, (b.y + b.h / 2) * TILE + 4);
-  }
-
-  // Active events
-  for (const e of activeEvents) {
-    const alpha = 0.6 + 0.4 * Math.sin(e.pulse);
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = e.type.includes("fire") ? "#FF5722" : e.type.includes("crash") ? "#FF9800" : "#E91E63";
-    ctx.beginPath();
-    ctx.arc(e.x * TILE + TILE / 2, e.y * TILE + TILE / 2, TILE * 0.55 * (1 + 0.2 * Math.sin(e.pulse)), 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    ctx.font = "20px serif";
-    ctx.textAlign = "center";
-    ctx.fillText(e.type.split(" ")[1] || "!", e.x * TILE + TILE / 2, e.y * TILE + TILE / 2 + 7);
-  }
-
-  // Player shadow
-  ctx.fillStyle = "rgba(0,0,0,0.3)";
-  ctx.beginPath();
-  ctx.ellipse(player.px, player.py + 14, 10, 5, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Player body
-  ctx.fillStyle = job.color;
-  ctx.beginPath();
-  ctx.roundRect(player.px - 12, player.py - 18, 24, 28, 6);
-  ctx.fill();
-  ctx.strokeStyle = "#000";
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  // Head
-  ctx.fillStyle = "#FFCC80";
-  ctx.beginPath();
-  ctx.arc(player.px, player.py - 22, 10, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-  // Emoji badge
-  ctx.font = "14px serif";
-  ctx.textAlign = "center";
-  ctx.fillText(job.emoji, player.px, player.py - 4);
-
-  // Particles
-  for (const p of particles) {
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.font = "bold 14px Courier New";
-    ctx.textAlign = "center";
-    ctx.fillText(p.text, p.x + TILE / 2, p.y);
-  }
-  ctx.globalAlpha = 1;
-
-  // Interaction range
-  ctx.strokeStyle = "rgba(255,255,255,0.15)";
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 6]);
-  ctx.beginPath();
-  ctx.arc(player.px, player.py, TILE * 2.5, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.setLineDash([]);
+  drawWorld();
+  drawNPCs();
+  drawPlayer();
+  drawBullets();
+  drawParticles();
 
   ctx.restore();
-
-  // Mini compass
-  ctx.fillStyle = "rgba(0,0,0,0.5)";
-  ctx.fillRect(W - 70, H - 70, 60, 60);
-  ctx.strokeStyle = "#555";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(W - 70, H - 70, 60, 60);
-  const mx = ((player.x / COLS) * 56) + (W - 68);
-  const my = ((player.y / ROWS) * 56) + (H - 68);
-  ctx.fillStyle = job.color;
-  ctx.beginPath();
-  ctx.arc(mx, my, 4, 0, Math.PI * 2);
-  ctx.fill();
-  activeEvents.forEach(e => {
-    const ex = ((e.x / COLS) * 56) + (W - 68);
-    const ey = ((e.y / ROWS) * 56) + (H - 68);
-    ctx.fillStyle = "#F44336";
-    ctx.beginPath();
-    ctx.arc(ex, ey, 2.5, 0, Math.PI * 2);
-    ctx.fill();
-  });
+  drawMinimap();
 }
 
-function updateHUD() {
-  const h = Math.floor(timeMin / 60).toString().padStart(2, "0");
-  const m = Math.floor(timeMin % 60).toString().padStart(2, "0");
-  document.getElementById("money").textContent = money;
-  document.getElementById("rep").textContent = rep;
-  document.getElementById("health").textContent = health;
-  document.getElementById("day").textContent = day;
-  document.getElementById("timeStr").textContent = `${h}:${m}`;
-  document.getElementById("jobBadge").style.borderColor = job.color;
-  document.getElementById("jobBadge").textContent = `${job.emoji} ${job.name}`;
-}
+function drawWorld() {
+  // ground
+  ctx.fillStyle="#1a2e1a";
+  ctx.fillRect(0,0,COLS*T,ROWS*T);
 
-function updateTaskPanel() {
-  const el = document.getElementById("taskList");
-  el.innerHTML = tasks.slice(0, 3).map(t => {
-    const urgentTag = t.urgency === "urgent" ? ' <span style="color:#f44">URGENT</span>' : '';
-    const ttlColor = t.ttl < 15 ? "#f44" : t.ttl < 30 ? "#ff9800" : "#8bc34a";
-    return `<div class="taskItem">${t.text}${urgentTag}<br><span style="color:${ttlColor};font-size:10px">⏱ ${Math.max(0, Math.floor(t.ttl))}s  💰 $${t.reward}</span></div>`;
-  }).join("");
-}
-
-function resizeCanvas() {
-  canvas = document.getElementById("canvas");
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  ctx = canvas.getContext("2d");
-}
-
-// --- Init splash ---
-(function initSplash() {
-  job = JOBS[Math.floor(Math.random() * JOBS.length)];
-  const revealEl = document.getElementById("jobReveal");
-  const descEl = document.getElementById("jobDesc");
-  let rolls = 0;
-  const interval = setInterval(() => {
-    const rj = JOBS[Math.floor(Math.random() * JOBS.length)];
-    revealEl.textContent = `${rj.emoji} ${rj.name}`;
-    revealEl.style.borderColor = rj.color;
-    rolls++;
-    if (rolls > 14) {
-      clearInterval(interval);
-      revealEl.textContent = `${job.emoji} ${job.name}`;
-      revealEl.style.borderColor = job.color;
-      revealEl.style.background = `${job.color}22`;
-      descEl.textContent = job.desc;
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) {
+    if(map[r][c]===1) {
+      ctx.fillStyle="#2d3a3d";
+      ctx.fillRect(c*T,r*T,T,T);
+      // dashes
+      ctx.save();
+      ctx.strokeStyle="#3a4d52"; ctx.lineWidth=1; ctx.setLineDash([5,8]);
+      ctx.beginPath(); ctx.moveTo(c*T+T/2,r*T); ctx.lineTo(c*T+T/2,r*T+T); ctx.stroke();
+      ctx.restore();
     }
-  }, 100);
-})();
+  }
 
-window.addEventListener("keydown", e => { keys[e.key] = true; if (e.key === "r" || e.key === "R") { job = JOBS[Math.floor(Math.random() * JOBS.length)]; if (typeof startGame !== "undefined") startGame(); } });
-window.addEventListener("keyup",  e => { keys[e.key] = false; });
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
+  // buildings
+  for(const b of buildings) {
+    ctx.fillStyle=b.color;
+    ctx.fillRect(b.x*T+2,b.y*T+2,b.w*T-4,b.h*T-4);
+    ctx.strokeStyle="#000"; ctx.lineWidth=1.5;
+    ctx.strokeRect(b.x*T+2,b.y*T+2,b.w*T-4,b.h*T-4);
+
+    // windows
+    ctx.fillStyle="rgba(255,255,160,0.45)";
+    for(let dy=0;dy<b.h;dy++) for(let dx=0;dx<b.w;dx++) {
+      ctx.fillRect(b.x*T+dx*T+8,b.y*T+dy*T+8,7,7);
+      ctx.fillRect(b.x*T+dx*T+22,b.y*T+dy*T+8,7,7);
+    }
+
+    // label
+    ctx.fillStyle="#fff"; ctx.font="bold 9px Courier New"; ctx.textAlign="center";
+    ctx.fillText(b.label,(b.x+b.w/2)*T,(b.y+b.h/2)*T+3);
+
+    // robbery icon + progress bar
+    const rob=robberies.find(r=>buildings[r.bIdx]===b);
+    if(rob) {
+      ctx.font="18px serif"; ctx.fillText("💰",(b.x+b.w/2)*T,b.y*T-4);
+      const pct=rob.timer/rob.total;
+      ctx.fillStyle="rgba(0,0,0,0.5)";
+      ctx.fillRect(b.x*T+4,b.y*T-14,b.w*T-8,8);
+      ctx.fillStyle="#FFD700";
+      ctx.fillRect(b.x*T+4,b.y*T-14,(b.w*T-8)*pct,8);
+    }
+
+    // gun shop marker
+    if(b.gunshop) { ctx.font="14px serif"; ctx.fillText("🔫",(b.x+b.w/2)*T,b.y*T-4); }
+    // station marker
+    if(b.policeSpawn) { ctx.font="14px serif"; ctx.fillText("🚔",(b.x+b.w/2)*T,b.y*T-4); }
+    // hospital marker
+    if(b.healspot) { ctx.font="14px serif"; ctx.fillText("➕",(b.x+b.w/2)*T,b.y*T-4); }
+  }
+}
+
+function drawEntity(px,py,color,emoji,hp,armed,wantedIndicator) {
+  // shadow
+  ctx.fillStyle="rgba(0,0,0,0.25)";
+  ctx.beginPath(); ctx.ellipse(px,py+14,10,4,0,0,Math.PI*2); ctx.fill();
+  // body
+  ctx.fillStyle=color;
+  ctx.beginPath(); ctx.roundRect(px-11,py-17,22,26,5); ctx.fill();
+  ctx.strokeStyle="#000"; ctx.lineWidth=1.2; ctx.stroke();
+  // head
+  ctx.fillStyle="#FFCC80";
+  ctx.beginPath(); ctx.arc(px,py-21,9,0,Math.PI*2); ctx.fill(); ctx.stroke();
+  // emoji
+  ctx.font="13px serif"; ctx.textAlign="center";
+  ctx.fillText(emoji,px,py-4);
+  // armed dot
+  if(armed) { ctx.fillStyle="#F44336"; ctx.beginPath(); ctx.arc(px+9,py-20,4,0,Math.PI*2); ctx.fill(); }
+  // hp bar
+  if(hp<100) {
+    ctx.fillStyle="#333"; ctx.fillRect(px-12,py+12,24,4);
+    ctx.fillStyle=hp>60?"#4CAF50":hp>30?"#FF9800":"#F44336";
+    ctx.fillRect(px-12,py+12,24*(hp/100),4);
+  }
+  if(wantedIndicator) { ctx.fillStyle="#FFD700"; ctx.font="10px serif"; ctx.fillText("⭐",px,py-32); }
+}
+
+function drawNPCs() {
+  for(const n of npcs) {
+    const color = n.kind==="cop" ? "#1565C0" : "#333";
+    const emoji = n.kind==="cop" ? "👮" : "🥷";
+    drawEntity(n.px,n.py,color,emoji,n.hp,n.armed,false);
+    // state indicator
+    ctx.fillStyle="rgba(0,0,0,0.6)";
+    ctx.font="9px Courier New"; ctx.textAlign="center";
+    if(n.kind==="cop"&&n.state==="chase") ctx.fillText("CHASE",n.px,n.py-40);
+    if(n.kind==="robber"&&n.state==="robbing") ctx.fillText("ROBBING",n.px,n.py-40);
+  }
+}
+
+function drawPlayer() {
+  drawEntity(player.px,player.py,job.color,job.emoji,player.hp,player.armed,player.wLevel>0);
+
+  // interaction radius hint
+  ctx.strokeStyle="rgba(255,255,255,0.1)";
+  ctx.lineWidth=1; ctx.setLineDash([4,7]);
+  ctx.beginPath(); ctx.arc(player.px,player.py,T*2.5,0,Math.PI*2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawBullets() {
+  for(const b of bullets) {
+    ctx.fillStyle=b.owner==="cop"?"#2196F3":b.owner==="player"?job.color:"#F44336";
+    ctx.beginPath(); ctx.arc(b.x,b.y,4,0,Math.PI*2); ctx.fill();
+    // trail
+    ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=2; ctx.globalAlpha=0.4;
+    ctx.beginPath(); ctx.moveTo(b.x,b.y); ctx.lineTo(b.x-b.vx*0.04,b.y-b.vy*0.04); ctx.stroke();
+    ctx.globalAlpha=1;
+  }
+}
+
+function drawParticles() {
+  for(const p of particles) {
+    ctx.globalAlpha=Math.max(0,p.life);
+    ctx.fillStyle=p.color; ctx.font="bold 13px Courier New"; ctx.textAlign="center";
+    ctx.fillText(p.text,p.x,p.y);
+  }
+  ctx.globalAlpha=1;
+}
+
+function drawMinimap() {
+  const mc=document.getElementById("minimap");
+  const mw=mc.width, mh=mc.height;
+  const mx=mctx;
+  mx.clearRect(0,0,mw,mh);
+  mx.fillStyle="rgba(0,0,0,0.7)"; mx.fillRect(0,0,mw,mh);
+
+  const sx=mw/COLS, sy=mh/ROWS;
+
+  // roads
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) {
+    if(map[r][c]===1){ mx.fillStyle="#333"; mx.fillRect(c*sx,r*sy,sx,sy); }
+    if(map[r][c]===2){ mx.fillStyle="#1a3a1a"; mx.fillRect(c*sx,r*sy,sx,sy); }
+  }
+
+  // buildings
+  for(const b of buildings) {
+    mx.fillStyle=b.color; mx.fillRect(b.x*sx,b.y*sy,b.w*sx,b.h*sy);
+  }
+
+  // NPCs
+  for(const n of npcs) {
+    mx.fillStyle=n.kind==="cop"?"#2196F3":"#F44336";
+    mx.beginPath(); mx.arc(n.x*sx+sx/2,n.y*sy+sy/2,2.5,0,Math.PI*2); mx.fill();
+  }
+
+  // player
+  mx.fillStyle=job.color;
+  mx.beginPath(); mx.arc(player.x*sx+sx/2,player.y*sy+sy/2,3.5,0,Math.PI*2); mx.fill();
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+function resize() {
+  cvs.width=window.innerWidth; cvs.height=window.innerHeight;
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+window.addEventListener("keydown",e=>{
+  keys[e.key]=true;
+  if((e.key==="r"||e.key==="R")&&document.getElementById("splash").style.display==="none") {
+    job=JOBS[Math.floor(Math.random()*JOBS.length)];
+    startGame();
+  }
+});
+window.addEventListener("keyup",e=>{ keys[e.key]=false; });
+window.addEventListener("resize",resize);
+
+// ─── Splash ───────────────────────────────────────────────────────────────────
+(function() {
+  cvs=document.getElementById("c");
+  ctx=cvs.getContext("2d");
+  mcvs=document.getElementById("minimap");
+  mctx=mcvs.getContext("2d");
+  mcvs.width=72; mcvs.height=72;
+  resize();
+
+  job=JOBS[Math.floor(Math.random()*JOBS.length)];
+  const rev=document.getElementById("jobReveal");
+  const desc=document.getElementById("jobDesc");
+  let n=0;
+  const iv=setInterval(()=>{
+    const rj=JOBS[Math.floor(Math.random()*JOBS.length)];
+    rev.textContent=`${rj.emoji} ${rj.name}`;
+    rev.style.borderColor=rj.color;
+    if(++n>16){
+      clearInterval(iv);
+      rev.textContent=`${job.emoji} ${job.name}`;
+      rev.style.borderColor=job.color;
+      rev.style.background=`${job.color}22`;
+      desc.textContent=job.desc;
+    }
+  },90);
+})();
 </script>
 </body>
 </html>
