@@ -553,7 +553,7 @@ function updateHUD(){
 
 // ── Rendering ─────────────────────────────────────────────────────────────────
 function draw(){
-  ctx.clearRect(0,0,cvs.width,cvs.height);
+  ctx.fillStyle="#5c7a3e"; ctx.fillRect(0,0,cvs.width,cvs.height);
   const ox=cvs.width/2-player.px, oy=cvs.height/2-player.py;
   ctx.save(); ctx.translate(ox,oy);
   drawTerrain(); drawBuildings(); drawCars(); drawNPCs(); drawPlayer(); drawBullets(); drawParticles();
@@ -562,69 +562,84 @@ function draw(){
 }
 
 function drawTerrain(){
-  // base ground
-  ctx.fillStyle="#1f2d1f"; ctx.fillRect(0,0,MC*T,MR*T);
+  // base ground — olive green
+  ctx.fillStyle="#5c7a3e"; ctx.fillRect(0,0,MC*T,MR*T);
   for(let r=0;r<MR;r++) for(let c=0;c<MC;c++){
     const t=map[r][c]; const x=c*T, y=r*T;
     if(t===1){
-      // asphalt
-      ctx.fillStyle="#2a2e30"; ctx.fillRect(x,y,T,T);
-      // subtle noise texture
-      ctx.fillStyle="rgba(255,255,255,0.015)"; if((r+c)%2===0) ctx.fillRect(x,y,T,T);
-      // lane markings: check if road continues in same direction
+      // asphalt road
+      ctx.fillStyle="#3d3d3d"; ctx.fillRect(x,y,T,T);
       const horiz=isRoadTile(c-1,r)||isRoadTile(c+1,r);
       const vert =isRoadTile(c,r-1)||isRoadTile(c,r+1);
-      // white edge dashes
-      ctx.strokeStyle="rgba(255,255,255,0.25)"; ctx.lineWidth=1; ctx.setLineDash([6,10]);
-      if(horiz&&!vert){ ctx.beginPath();ctx.moveTo(x,y+T/2);ctx.lineTo(x+T,y+T/2);ctx.stroke(); }
-      if(vert&&!horiz){ ctx.beginPath();ctx.moveTo(x+T/2,y);ctx.lineTo(x+T/2,y+T);ctx.stroke(); }
+      if(horiz&&vert){
+        // intersection — plain asphalt, no markings
+      } else if(horiz){
+        // horizontal road: yellow dashed center line
+        ctx.strokeStyle="#e8d44d"; ctx.lineWidth=1.5; ctx.setLineDash([8,8]);
+        ctx.beginPath(); ctx.moveTo(x,y+T/2); ctx.lineTo(x+T,y+T/2); ctx.stroke();
+        ctx.setLineDash([]);
+        // white edge lines
+        ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x,y+2); ctx.lineTo(x+T,y+2); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x,y+T-2); ctx.lineTo(x+T,y+T-2); ctx.stroke();
+      } else if(vert){
+        // vertical road: yellow dashed center line
+        ctx.strokeStyle="#e8d44d"; ctx.lineWidth=1.5; ctx.setLineDash([8,8]);
+        ctx.beginPath(); ctx.moveTo(x+T/2,y); ctx.lineTo(x+T/2,y+T); ctx.stroke();
+        ctx.setLineDash([]);
+        // white edge lines
+        ctx.strokeStyle="rgba(255,255,255,0.45)"; ctx.lineWidth=1;
+        ctx.beginPath(); ctx.moveTo(x+2,y); ctx.lineTo(x+2,y+T); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x+T-2,y); ctx.lineTo(x+T-2,y+T); ctx.stroke();
+      }
       ctx.setLineDash([]);
-      // intersection marker
-      if(horiz&&vert){ ctx.fillStyle="rgba(255,255,255,0.06)"; ctx.fillRect(x+2,y+2,T-4,T-4); }
     } else if(t===3){
-      // sidewalk — concrete
-      ctx.fillStyle="#3a3f40"; ctx.fillRect(x,y,T,T);
-      ctx.fillStyle="rgba(255,255,255,0.04)"; ctx.fillRect(x+2,y+2,T-4,T-4);
-      // curb line toward road
-      ctx.strokeStyle="rgba(200,200,200,0.18)"; ctx.lineWidth=1; ctx.setLineDash([]);
-      ctx.strokeRect(x,y,T,T);
+      // sidewalk — warm light gray
+      ctx.fillStyle="#a09880"; ctx.fillRect(x,y,T,T);
+      ctx.strokeStyle="rgba(0,0,0,0.15)"; ctx.lineWidth=1; ctx.setLineDash([]);
+      ctx.strokeRect(x+0.5,y+0.5,T-1,T-1);
+      // crosswalk stripes where sidewalk meets road
+      const adjRoad=(dr,dc)=>{ const nr=r+dr,nc=c+dc; return nr>=0&&nr<MR&&nc>=0&&nc<MC&&map[nr][nc]===1; };
+      const roadN=adjRoad(-1,0),roadS=adjRoad(1,0),roadW=adjRoad(0,-1),roadE=adjRoad(0,1);
+      if(roadN||roadS||roadW||roadE){
+        ctx.fillStyle="rgba(255,255,255,0.45)";
+        if(roadN){ for(let i=0;i<4;i++) ctx.fillRect(x+i*9+1,y,7,4); }
+        if(roadS){ for(let i=0;i<4;i++) ctx.fillRect(x+i*9+1,y+T-4,7,4); }
+        if(roadW){ for(let i=0;i<4;i++) ctx.fillRect(x,y+i*9+1,4,7); }
+        if(roadE){ for(let i=0;i<4;i++) ctx.fillRect(x+T-4,y+i*9+1,4,7); }
+      }
     } else if(t===0){
-      // grass / empty lot
-      ctx.fillStyle="#22312a"; ctx.fillRect(x,y,T,T);
+      // grass — base color already filled, add subtle variation
+      if((r+c)%3===0){ ctx.fillStyle="rgba(0,0,0,0.07)"; ctx.fillRect(x,y,T,T); }
     }
   }
 }
 
 function drawBuildings(){
+  const ROOF_PALETTE={bank:"#8B7355",store:"#6B8E6B",jewelry:"#7B6B9E",gunshop:"#8B4040",station:"#4060A0",hospital:"#E0E0E0",diner:"#A07840",hotel:"#405858",school:"#806080",park:"#3a6e30",mall:"#607090",church:"#807060",garage:"#404858"};
   for(const b of buildings){
     const x=b.x*T, y=b.y*T, w=b.w*T, h=b.h*T;
-    // drop shadow
-    ctx.fillStyle="rgba(0,0,0,0.35)"; ctx.fillRect(x+5,y+5,w,h);
-    // building face
-    ctx.fillStyle=b.face; ctx.fillRect(x,y,w,h);
-    // facade trim
-    ctx.fillStyle=b.trim; ctx.fillRect(x,y,w,4); ctx.fillRect(x,y+h-4,w,4);
-    // window grid
-    const wgap=10, ww=8, wh=7;
-    ctx.fillStyle="rgba(200,220,255,0.18)";
-    for(let row=1;row<b.h;row++) for(let col=0;col<b.w;col++){
-      const wx=x+col*T+8, wy=y+row*T-wgap;
-      ctx.fillRect(wx,wy,ww,wh);
-      // lit windows random
-      if((b.x*7+b.y*3+row*11+col*5)%7<4){ ctx.fillStyle="rgba(255,230,120,0.55)"; ctx.fillRect(wx,wy,ww,wh); ctx.fillStyle="rgba(200,220,255,0.18)"; }
-    }
-    // door
-    ctx.fillStyle=darkenHex(b.face,30);
-    ctx.fillRect(x+Math.floor(w/2)-6, y+h-14, 12, 14);
-    // building label
-    ctx.fillStyle="rgba(255,255,255,0.85)"; ctx.font="bold 9px 'Segoe UI',sans-serif"; ctx.textAlign="center";
-    ctx.fillText(b.label,x+w/2,y+h/2+3);
+    const roofCol=ROOF_PALETTE[b.id]||b.face;
+    // drop shadow (+4,+4)
+    ctx.fillStyle="rgba(0,0,0,0.4)"; ctx.fillRect(x+4,y+4,w,h);
+    // roof fill
+    ctx.fillStyle=roofCol; ctx.fillRect(x,y,w,h);
+    // roof ridge/panel lines — a few thin darker horizontal lines
+    ctx.strokeStyle="rgba(0,0,0,0.18)"; ctx.lineWidth=1; ctx.setLineDash([]);
+    const ridgeStep=Math.max(8, Math.floor(h/5));
+    for(let ry=y+ridgeStep;ry<y+h-2;ry+=ridgeStep){ ctx.beginPath(); ctx.moveTo(x+3,ry); ctx.lineTo(x+w-3,ry); ctx.stroke(); }
+    // dark border
+    ctx.strokeStyle="rgba(0,0,0,0.5)"; ctx.lineWidth=2; ctx.setLineDash([]);
+    ctx.strokeRect(x+1,y+1,w-2,h-2);
+    // building label — top-left corner, small
+    ctx.fillStyle="rgba(255,255,255,0.85)"; ctx.font="bold 8px 'Segoe UI',sans-serif"; ctx.textAlign="left";
+    ctx.fillText(b.label,x+4,y+11);
     // icons
-    ctx.font="13px serif";
-    if(b.gunshop)   ctx.fillText("🔫",x+w/2,y-5);
-    if(b.policeSpawn)ctx.fillText("🚔",x+w/2,y-5);
-    if(b.healspot)  ctx.fillText("🏥",x+w/2,y-5);
-    if(b.robbable)  ctx.fillText("💰",x+w-10,y+8);
+    ctx.font="13px serif"; ctx.textAlign="center";
+    if(b.gunshop)    ctx.fillText("🔫",x+w/2,y-5);
+    if(b.policeSpawn) ctx.fillText("🚔",x+w/2,y-5);
+    if(b.healspot)   ctx.fillText("🏥",x+w/2,y-5);
+    if(b.robbable)   ctx.fillText("💰",x+w-10,y+8);
     // robbery progress bar
     const rob=robberies.find(r=>buildings[r.bi]===b);
     if(rob){ const pct=rob.timer/rob.total; ctx.fillStyle="rgba(0,0,0,0.6)"; ctx.fillRect(x+4,y-14,w-8,7); ctx.fillStyle="#fbbf24"; ctx.fillRect(x+4,y-14,(w-8)*pct,7); }
@@ -634,31 +649,17 @@ function drawBuildings(){
 
 function drawHuman(px,py,app,wp,scale=1,badge=null){
   ctx.save(); ctx.translate(px,py); ctx.scale(scale,scale);
-  const leg=Math.sin(wp)*4;
-  // shadow
-  ctx.fillStyle="rgba(0,0,0,0.22)"; ctx.beginPath(); ctx.ellipse(1,13,9,4,0,0,Math.PI*2); ctx.fill();
-  // left leg
-  ctx.fillStyle=app.pants; ctx.beginPath(); ctx.ellipse(-4,11+leg,3,6,0.15,0,Math.PI*2); ctx.fill();
-  // right leg
-  ctx.beginPath(); ctx.ellipse(4,11-leg,3,6,-0.15,0,Math.PI*2); ctx.fill();
-  // torso
-  ctx.fillStyle=app.shirt; ctx.beginPath(); ctx.ellipse(0,2,9,10,0,0,Math.PI*2); ctx.fill();
-  // left arm
-  ctx.beginPath(); ctx.ellipse(-11,Math.sin(wp)*3,3,5,0.4,0,Math.PI*2); ctx.fill();
-  // right arm
-  ctx.beginPath(); ctx.ellipse(11,-Math.sin(wp)*3,3,5,-0.4,0,Math.PI*2); ctx.fill();
-  // head
-  ctx.fillStyle=app.skin; ctx.beginPath(); ctx.arc(0,-12,9,0,Math.PI*2); ctx.fill();
-  // hair
-  ctx.fillStyle=app.hair; ctx.beginPath(); ctx.arc(0,-14,9,Math.PI,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(-8,-13,4,Math.PI*1.2,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(8,-13,4,Math.PI,Math.PI*1.8); ctx.fill();
-  // eyes
-  ctx.fillStyle="#111"; ctx.beginPath(); ctx.arc(-3,-12,1.4,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(3,-12,1.4,0,Math.PI*2); ctx.fill();
-  // badge/hat indicator
-  if(badge){ ctx.fillStyle=badge; ctx.beginPath(); ctx.arc(0,-22,5,0,Math.PI*2); ctx.fill(); ctx.strokeStyle="#000"; ctx.lineWidth=1; ctx.stroke(); }
-  // armed dot
-  // (shown via badge color instead)
+  const sway=Math.sin(wp)*1;
+  // shadow ellipse
+  ctx.fillStyle="rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(1+sway,2,6,4,0,0,Math.PI*2); ctx.fill();
+  // shirt-colored oval body (top-down)
+  ctx.fillStyle=app.shirt; ctx.beginPath(); ctx.ellipse(sway,2,5,7,0,0,Math.PI*2); ctx.fill();
+  // head circle
+  ctx.fillStyle=app.skin; ctx.beginPath(); ctx.arc(sway,-3,4.5,0,Math.PI*2); ctx.fill();
+  // hair — darker arc on top half of head
+  ctx.fillStyle=app.hair; ctx.beginPath(); ctx.arc(sway,-3,4.5,Math.PI,Math.PI*2); ctx.fill();
+  // badge dot above head
+  if(badge){ ctx.fillStyle=badge; ctx.beginPath(); ctx.arc(sway,-9,3,0,Math.PI*2); ctx.fill(); ctx.strokeStyle="#000"; ctx.lineWidth=0.8; ctx.stroke(); }
   ctx.restore();
 }
 
