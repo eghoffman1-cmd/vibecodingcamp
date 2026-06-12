@@ -1,0 +1,13 @@
+{
+  "appId": "com.beanything.game",
+  "appName": "Be Anything",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  },
+  "ios": {
+    "contentInset": "always",
+    "allowsLinkPreview": false,
+    "scrollEnabled": false
+  }
+}
