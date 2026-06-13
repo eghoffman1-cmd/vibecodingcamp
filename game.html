@@ -65,7 +65,7 @@
   <div style="display:flex;gap:12px;">
     <button class="lvl-btn" id="btn-easy"   onclick="setStart(0)" style="background:linear-gradient(135deg,#22bb55,#116622)">😊 Easy<br><small>15s • Slow water</small></button>
     <button class="lvl-btn" id="btn-medium" onclick="setStart(1)" style="background:linear-gradient(135deg,#ffaa00,#885500)">😤 Medium<br><small>12s • Faster water</small></button>
-    <button class="lvl-btn" id="btn-hard"   onclick="setStart(2)" style="background:linear-gradient(135deg,#ff3333,#880011)">💀 Hard<br><small>10s • LAVA water</small></button>
+    <button class="lvl-btn" id="btn-hard"   onclick="setStart(2)" style="background:linear-gradient(135deg,#ff3333,#880011)">💀 Hard<br><small>15s • LAVA water</small></button>
   </div>
   <p style="color:#666;font-size:0.85em">Pick where to start — you'll still progress through remaining levels!</p>
   <button id="startBtn">PLAY!</button>
@@ -135,18 +135,18 @@ const DIFFICULTIES = {
     waterTop: 'rgba(0,200,255,0.85)', waterMid: 'rgba(0,100,220,0.9)',
   },
   hard: {
-    label: 'Hard', emoji: '💀', time: 10,
-    riseMultiplier: 0.9, accelerate: true,
+    label: 'Hard', emoji: '💀', time: 15,
+    riseMultiplier: 0.65, accelerate: false,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
-      { x: 80,  y: 390, w:  90, h: 14 },
-      { x: 280, y: 330, w:  80, h: 14 },
-      { x: 430, y: 280, w:  90, h: 14 },
-      { x: 120, y: 230, w:  80, h: 14 },
-      { x: 330, y: 185, w:  80, h: 14 },
-      { x: 70,  y: 140, w:  90, h: 14 },
-      { x: 430, y: 100, w:  90, h: 14 },
-      { x: 220, y:  60, w: 100, h: 14 },
+      { x: 60,  y: 390, w: 120, h: 14 },
+      { x: 260, y: 330, w: 110, h: 14 },
+      { x: 410, y: 275, w: 120, h: 14 },
+      { x: 80,  y: 225, w: 110, h: 14 },
+      { x: 300, y: 180, w: 110, h: 14 },
+      { x: 50,  y: 135, w: 120, h: 14 },
+      { x: 400, y:  95, w: 120, h: 14 },
+      { x: 190, y:  50, w: 140, h: 14 },
     ],
     color: '#ff3333',
     waterTop: 'rgba(255,80,0,0.85)', waterMid: 'rgba(180,20,0,0.9)',
@@ -530,7 +530,7 @@ function loop(ts) {
   if (gameState==='playing') {
     updatePlayer(dt);
     const elapsed=totalTime-timer;
-    const accel=diffConfig.accelerate?1+elapsed*0.04:1;
+    const accel=diffConfig.accelerate?1+elapsed*0.02:1;
     waterY-=waterRiseRate*dt*accel;
     timer-=dt/60;
     updateBubbles(); updateParticles();
