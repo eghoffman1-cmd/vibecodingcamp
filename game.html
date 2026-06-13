@@ -64,8 +64,8 @@
   <input id="nameInput" type="text" placeholder="Enter your name..." maxlength="16" />
   <div style="display:flex;gap:12px;">
     <button class="lvl-btn" id="btn-easy"   onclick="setStart(0)" style="background:linear-gradient(135deg,#22bb55,#116622)">😊 Easy<br><small>15s • Slow water</small></button>
-    <button class="lvl-btn" id="btn-medium" onclick="setStart(1)" style="background:linear-gradient(135deg,#ffaa00,#885500)">😤 Medium<br><small>10s • Normal water</small></button>
-    <button class="lvl-btn" id="btn-hard"   onclick="setStart(2)" style="background:linear-gradient(135deg,#ff3333,#880011)">💀 Hard<br><small>7s • LAVA water</small></button>
+    <button class="lvl-btn" id="btn-medium" onclick="setStart(1)" style="background:linear-gradient(135deg,#ffaa00,#885500)">😤 Medium<br><small>12s • Faster water</small></button>
+    <button class="lvl-btn" id="btn-hard"   onclick="setStart(2)" style="background:linear-gradient(135deg,#ff3333,#880011)">💀 Hard<br><small>10s • LAVA water</small></button>
   </div>
   <p style="color:#666;font-size:0.85em">Pick where to start — you'll still progress through remaining levels!</p>
   <button id="startBtn">PLAY!</button>
@@ -118,8 +118,8 @@ const DIFFICULTIES = {
     waterTop: 'rgba(0,220,180,0.85)', waterMid: 'rgba(0,120,180,0.9)',
   },
   medium: {
-    label: 'Medium', emoji: '😤', time: 10,
-    riseMultiplier: 1.0, accelerate: false,
+    label: 'Medium', emoji: '😤', time: 12,
+    riseMultiplier: 0.7, accelerate: false,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
       { x: 50,  y: 400, w: 120, h: 14 },
@@ -135,8 +135,8 @@ const DIFFICULTIES = {
     waterTop: 'rgba(0,200,255,0.85)', waterMid: 'rgba(0,100,220,0.9)',
   },
   hard: {
-    label: 'Hard', emoji: '💀', time: 7,
-    riseMultiplier: 1.6, accelerate: true,
+    label: 'Hard', emoji: '💀', time: 10,
+    riseMultiplier: 0.9, accelerate: true,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
       { x: 80,  y: 390, w:  90, h: 14 },
@@ -530,7 +530,7 @@ function loop(ts) {
   if (gameState==='playing') {
     updatePlayer(dt);
     const elapsed=totalTime-timer;
-    const accel=diffConfig.accelerate?1+elapsed*0.08:1;
+    const accel=diffConfig.accelerate?1+elapsed*0.04:1;
     waterY-=waterRiseRate*dt*accel;
     timer-=dt/60;
     updateBubbles(); updateParticles();
