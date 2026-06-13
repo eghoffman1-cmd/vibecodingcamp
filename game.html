@@ -47,6 +47,14 @@
   .step.done { opacity: 1; }
   .step-arrow { color: #555; font-size: 1.2em; }
   #controls { color: #555; font-size: 0.88em; text-align: center; }
+  .lvl-btn {
+    padding: 12px 20px; font-size: 1em; border: 2px solid transparent;
+    border-radius: 10px; cursor: pointer; font-weight: bold; color: #fff;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.15s;
+    min-width: 110px; line-height: 1.5;
+  }
+  .lvl-btn:hover { transform: scale(1.06); }
+  .lvl-btn.selected { border-color: #fff; box-shadow: 0 0 16px rgba(255,255,255,0.5); }
 </style>
 </head>
 <body>
@@ -54,14 +62,13 @@
   <h1>🌊 RISING WATER<br>SURVIVAL!</h1>
   <p>Survive all <strong style="color:#ff6">3 levels</strong> — Easy → Medium → Hard — to become the ultimate champion!</p>
   <input id="nameInput" type="text" placeholder="Enter your name..." maxlength="16" />
-  <div class="level-steps">
-    <div class="step done" style="background:#22bb55">😊 Easy<br><small>15s</small></div>
-    <div class="step-arrow">→</div>
-    <div class="step" id="step-medium" style="background:#ffaa00">😤 Medium<br><small>10s</small></div>
-    <div class="step-arrow">→</div>
-    <div class="step" id="step-hard" style="background:#ff3333">💀 Hard<br><small>7s</small></div>
+  <div style="display:flex;gap:12px;">
+    <button class="lvl-btn" id="btn-easy"   onclick="setStart(0)" style="background:linear-gradient(135deg,#22bb55,#116622)">😊 Easy<br><small>15s • Slow water</small></button>
+    <button class="lvl-btn" id="btn-medium" onclick="setStart(1)" style="background:linear-gradient(135deg,#ffaa00,#885500)">😤 Medium<br><small>10s • Normal water</small></button>
+    <button class="lvl-btn" id="btn-hard"   onclick="setStart(2)" style="background:linear-gradient(135deg,#ff3333,#880011)">💀 Hard<br><small>7s • LAVA water</small></button>
   </div>
-  <button id="startBtn">START EASY!</button>
+  <p style="color:#666;font-size:0.85em">Pick where to start — you'll still progress through remaining levels!</p>
+  <button id="startBtn">PLAY!</button>
   <div id="controls">← → or A / D to move &nbsp;|&nbsp; Space or ↑ to jump (double jump!)</div>
 </div>
 <canvas id="gameCanvas"></canvas>
@@ -80,6 +87,14 @@ let playerName = 'Player';
 let gameState = 'menu';
 let audioCtx = null;
 let currentLevelIndex = 0;
+let startLevelIndex = 0;
+
+function setStart(i) {
+  startLevelIndex = i;
+  document.querySelectorAll('.lvl-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById(['btn-easy','btn-medium','btn-hard'][i]).classList.add('selected');
+}
+setTimeout(() => setStart(0), 0);
 
 const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 
@@ -243,7 +258,7 @@ document.addEventListener('keydown', e => {
   if (e.code==='Space') {
     if (gameState==='dead') initLevel(currentLevelIndex); // retry same level
     if (gameState==='levelwin') initLevel(currentLevelIndex+1); // next level
-    if (gameState==='finalwin') { currentLevelIndex=0; initLevel(0); } // restart all
+    if (gameState==='finalwin') { currentLevelIndex=startLevelIndex; initLevel(startLevelIndex); } // restart all
   }
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
@@ -534,8 +549,8 @@ startBtn.addEventListener('click', () => {
   playerName = nameInput.value.trim() || 'Player';
   ui.style.display = 'none';
   getAudio();
-  currentLevelIndex = 0;
-  initLevel(0);
+  currentLevelIndex = startLevelIndex;
+  initLevel(startLevelIndex);
   requestAnimationFrame(loop);
 });
 nameInput.addEventListener('keydown', e => { if (e.key==='Enter') startBtn.click(); });
