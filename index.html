@@ -42,11 +42,66 @@ canvas { display:block; }
 #minimap { position:fixed; bottom:12px; left:12px; width:160px; height:120px;
            background:rgba(0,0,0,0.82); border:1px solid rgba(255,255,255,0.15);
            border-radius:6px; z-index:10; backdrop-filter:blur(4px); }
+#mpOverlay { position:fixed; inset:0; background:rgba(0,0,0,0.92); display:flex; flex-direction:column;
+             align-items:center; justify-content:center; z-index:200; }
+#mpOverlay h2 { color:#e8c86a; font-size:1.4em; margin-bottom:18px; letter-spacing:1px; }
+.mp-btn { background:#e8c86a; color:#111; border:none; padding:11px 32px; font-size:.9em;
+          font-family:inherit; border-radius:7px; cursor:pointer; font-weight:700; margin:6px;
+          letter-spacing:.6px; text-transform:uppercase; }
+.mp-btn:hover { background:#f0d888; }
+.mp-btn-ghost { background:transparent; color:#e8c86a; border:1px solid #e8c86a; }
+.mp-btn-ghost:hover { background:rgba(232,200,106,0.1); }
+#mpInput { background:#1a1a2e; border:1px solid #444; color:#eee; padding:10px 14px;
+           border-radius:7px; font-size:.95em; font-family:inherit; width:240px; text-align:center;
+           letter-spacing:2px; margin:8px; }
+#mpRoomDisplay { background:#1a1a2e; border:1px solid #555; border-radius:8px; padding:14px 20px;
+                 text-align:center; margin:10px 0; }
+#mpStatus { position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:15;
+            background:rgba(10,10,20,0.88); border:1px solid #444; padding:5px 16px;
+            border-radius:20px; font-size:11px; color:#aaa; backdrop-filter:blur(4px);
+            pointer-events:none; display:none; }
 </style>
 </head>
 <body>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <canvas id="c"></canvas>
 <canvas id="minimap"></canvas>
+
+<div id="mpStatus"></div>
+
+<div id="mpOverlay">
+  <h2>🌐 MULTIPLAYER</h2>
+  <div id="mpMenu">
+    <p style="color:#888;font-size:.85em;margin-bottom:18px;text-align:center">Play with friends in the same city</p>
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <button class="mp-btn" onclick="mpCreate()">Create Room</button>
+      <div style="color:#555;margin:8px 0;font-size:.8em">— or —</div>
+      <input id="mpInput" placeholder="Enter room code" maxlength="20" spellcheck="false">
+      <button class="mp-btn mp-btn-ghost" onclick="mpJoin()">Join Room</button>
+      <div style="margin-top:20px;">
+        <button class="mp-btn mp-btn-ghost" onclick="mpSkip()" style="font-size:.8em;padding:8px 20px;">Play Solo Instead</button>
+      </div>
+    </div>
+    <div id="mpMsg" style="color:#ef4444;font-size:.8em;margin-top:10px;text-align:center;min-height:18px;"></div>
+  </div>
+  <div id="mpWaiting" style="display:none;text-align:center;">
+    <p style="color:#888;font-size:.85em;margin-bottom:14px;">Share this code with friends:</p>
+    <div id="mpRoomDisplay">
+      <div id="mpCode" style="font-size:1.6em;font-weight:700;color:#e8c86a;letter-spacing:4px;"></div>
+      <div style="font-size:.75em;color:#666;margin-top:4px;">tap to copy</div>
+    </div>
+    <div style="color:#888;font-size:.82em;margin:12px 0;">Waiting for players… <span id="mpCount">0</span> connected</div>
+    <button class="mp-btn" onclick="mpStartFromLobby()" style="margin-top:6px;">Start Game</button>
+    <div style="margin-top:10px;">
+      <button class="mp-btn mp-btn-ghost" onclick="mpCancel()" style="font-size:.8em;padding:8px 20px;">Cancel</button>
+    </div>
+  </div>
+  <div id="mpJoining" style="display:none;text-align:center;">
+    <div style="color:#aaa;font-size:.9em;">Connecting to room…</div>
+    <div style="color:#555;font-size:.75em;margin-top:8px;" id="mpJoinStatus"></div>
+    <button class="mp-btn mp-btn-ghost" onclick="mpCancel()" style="font-size:.8em;padding:8px 20px;margin-top:16px;">Cancel</button>
+  </div>
+</div>
 
 <div id="hud">
   <div id="jobBadge">…</div>
@@ -303,7 +358,10 @@ function startGame() {
 }
 
 // ── Loop ──────────────────────────────────────────────────────────────────────
-function loop(ts){ const dt=Math.min((ts-lastTs)/1000,.1); lastTs=ts; update(dt); draw(); requestAnimationFrame(loop); }
+let mpBroadcastTimer=0;
+function loop(ts){ const dt=Math.min((ts-lastTs)/1000,.1); lastTs=ts; update(dt); draw();
+  mpBroadcastTimer+=dt; if(mpBroadcastTimer>0.05){mpBroadcastTimer=0;mpBroadcast();}
+  requestAnimationFrame(loop); }
 
 // ── Movement ──────────────────────────────────────────────────────────────────
 function tryStep(ent,dx,dy){
@@ -427,7 +485,7 @@ function interact(){
     return;
   }
   // arrest robbers (police)
-  if(job.isPolice){ for(const n of npcs){ if(n.kind==="robber"&&dist2(n,player)<2.5){ const earn=130+Math.floor(n.money); player.money+=earn; player.rep+=12; log(`Arrested robber — +$${earn}`); particle(player.px,player.py-20,`+$${earn}`,"#22c55e"); const p=randRoadPos(); Object.assign(n,spawnRobberNPC(p.x,p.y)); return; } } }
+  if(job.isPolice){ for(const n of npcs){ if(n.kind==="robber"&&dist2(n,player)<2.5){ const earn=130+Math.floor(n.money); player.money+=earn; player.rep+=12; log(`Arrested robber — +$${earn}`); particle(player.px,player.py-20,`+$${earn}`,"#22c55e"); mpBroadcastEvent("made an arrest! 🚔"); const p=randRoadPos(); Object.assign(n,spawnRobberNPC(p.x,p.y)); return; } } }
   // gun shop
   const gs=buildings.find(b=>b.gunshop);
   if(gs&&nearBld(player,gs)){ if(!player.armed){ if(player.money>=gs.gunCost){ player.money-=gs.gunCost; player.armed=true; log(`Bought handgun — $${gs.gunCost}`); particle(player.px,player.py-20,"Armed","#ef4444"); } else log(`Need $${gs.gunCost} for a weapon.`); } else log("Already armed."); return; }
@@ -523,7 +581,7 @@ function updateRobberies(dt){
     const r=robberies[i]; const b=buildings[r.bi]; r.timer+=dt;
     if(r.isPlayer){
       if(!nearBld(player,b,2.8)){log("Moved away — robbery cancelled.");robberies.splice(i,1);continue;}
-      if(r.timer>=r.total){ const earn=b.loot; player.money+=earn; player.wLevel=Math.min(3,player.wLevel+1); log(`Robbed ${b.label} — $${earn}. Wanted level up.`); particle(player.px,player.py-22,`+$${earn}`,"#fbbf24"); robberies.splice(i,1); npcs.filter(n=>n.kind==="cop").slice(0,2).forEach(c=>{c.state="chase";c.target=player;}); }
+      if(r.timer>=r.total){ const earn=b.loot; player.money+=earn; player.wLevel=Math.min(3,player.wLevel+1); log(`Robbed ${b.label} — $${earn}. Wanted level up.`); particle(player.px,player.py-22,`+$${earn}`,"#fbbf24"); mpBroadcastEvent(`robbed the ${b.label}! 💰`); robberies.splice(i,1); npcs.filter(n=>n.kind==="cop").slice(0,2).forEach(c=>{c.state="chase";c.target=player;}); }
     } else { if(r.timer>=r.total) robberies.splice(i,1); }
   }
 }
@@ -561,7 +619,7 @@ function draw(){
   ctx.translate(cvs.width/2, cvs.height/2);
   ctx.scale(ZOOM, ZOOM);
   ctx.translate(-player.px, -player.py);
-  drawTerrain(); drawBuildings(); drawCars(); drawNPCs(); drawPlayer(); drawBullets(); drawParticles();
+  drawTerrain(); drawBuildings(); drawCars(); drawNPCs(); drawRemotePlayers(); drawPlayer(); drawBullets(); drawParticles();
   ctx.restore();
   drawMinimap();
 }
@@ -791,12 +849,125 @@ function drawMinimap(){
   mx.strokeStyle="rgba(255,255,255,0.35)"; mx.lineWidth=1; mx.setLineDash([3,3]);
   mx.strokeRect(vx, vy, vw*sx/T, vh*sy/T);
   mx.setLineDash([]);
+  // remote players on minimap
+  for(const r of Object.values(remotePlayers)){
+    const rx=Math.round(r.px/T), ry=Math.round(r.py/T);
+    mx.fillStyle=r.jobColor||"#aaa"; mx.beginPath();mx.arc(rx*sx+sx/2,ry*sy+sy/2,3,0,Math.PI*2);mx.fill();
+  }
   // player dot
   mx.fillStyle=job.color; mx.beginPath();mx.arc(player.x*sx+sx/2,player.y*sy+sy/2,4,0,Math.PI*2);mx.fill();
   mx.strokeStyle="#fff"; mx.lineWidth=1; mx.stroke();
   // label
   mx.fillStyle="rgba(255,255,255,0.6)"; mx.font="bold 9px 'Segoe UI',sans-serif"; mx.textAlign="left";
   mx.fillText("MAP",3,9);
+}
+
+// ── Multiplayer ───────────────────────────────────────────────────────────────
+let peer = null, mpConnections = [], remotePlayers = {}, mpIsHost = false, mpRoomCode = null, mpActive = false;
+
+function mpSetMsg(txt,col="#ef4444"){ const el=document.getElementById("mpMsg"); if(el){el.style.color=col;el.textContent=txt;} }
+function mpSetStatus(txt){ const el=document.getElementById("mpStatus"); if(!txt){el.style.display="none";return;} el.style.display="block";el.textContent=txt; }
+function mpShowSection(id){ ["mpMenu","mpWaiting","mpJoining"].forEach(s=>document.getElementById(s).style.display=s===id?"block":"none"); }
+
+function mpCreate(){
+  mpSetMsg("Connecting…","#aaa");
+  peer = new Peer();
+  peer.on("open", id=>{
+    mpRoomCode = id;
+    mpIsHost = true;
+    document.getElementById("mpCode").textContent = id.slice(0,8).toUpperCase();
+    document.getElementById("mpRoomDisplay").onclick = ()=>{ navigator.clipboard?.writeText(id.slice(0,8).toUpperCase()); mpSetMsg("Copied!","#4ade80"); };
+    mpShowSection("mpWaiting");
+    peer.on("connection", conn=>{
+      conn.on("open",()=>{
+        mpConnections.push(conn);
+        document.getElementById("mpCount").textContent = mpConnections.length;
+        // tell new joiner about existing remote players
+        conn.send({type:"peers", peers: Object.keys(remotePlayers)});
+        conn.on("data", data=>mpHandleData(conn, data));
+        conn.on("close",()=>{ mpConnections=mpConnections.filter(c=>c!==conn); delete remotePlayers[conn.peer]; });
+      });
+    });
+  });
+  peer.on("error", e=>mpSetMsg("Error: "+e.type));
+}
+
+function mpJoin(){
+  const raw = document.getElementById("mpInput").value.trim().toUpperCase();
+  if(!raw){ mpSetMsg("Enter a room code first."); return; }
+  mpShowSection("mpJoining");
+  document.getElementById("mpJoinStatus").textContent = "Looking up room…";
+  peer = new Peer();
+  peer.on("open", ()=>{
+    // look up full peer ID by prefix
+    const conn = peer.connect(raw.toLowerCase(), {reliable:true});
+    document.getElementById("mpJoinStatus").textContent = "Found room, connecting…";
+    conn.on("open",()=>{
+      mpConnections.push(conn);
+      mpRoomCode = raw;
+      conn.on("data", data=>mpHandleData(conn, data));
+      conn.on("close",()=>{ mpConnections=mpConnections.filter(c=>c!==conn); delete remotePlayers[conn.peer]; mpSetStatus("Host disconnected."); });
+      mpStartGame();
+    });
+    conn.on("error", e=>{ mpSetMsg("Could not connect. Check the code."); mpShowSection("mpMenu"); });
+  });
+  peer.on("error", e=>{ mpSetMsg("Error: "+e.type); mpShowSection("mpMenu"); });
+}
+
+function mpSkip(){ document.getElementById("mpOverlay").style.display="none"; mpActive=false; }
+function mpCancel(){ if(peer){peer.destroy();peer=null;} mpConnections=[]; mpShowSection("mpMenu"); mpSetMsg(""); }
+function mpStartFromLobby(){ if(mpConnections.length===0&&!confirm("No one else connected. Start solo?")) return; mpStartGame(); }
+
+function mpStartGame(){
+  document.getElementById("mpOverlay").style.display="none";
+  mpActive = true;
+  mpSetStatus(`🌐 ${mpRoomCode?mpRoomCode.slice(0,8).toUpperCase():""} — ${mpConnections.length} online`);
+}
+
+function mpHandleData(fromConn, data){
+  if(data.type==="state"){
+    remotePlayers[data.id] = data;
+    // host relays to everyone else
+    if(mpIsHost) mpConnections.filter(c=>c!==fromConn).forEach(c=>{ try{c.send(data);}catch(e){} });
+  } else if(data.type==="peers"){
+    // joiner learns peer IDs from host (future: direct connections)
+  } else if(data.type==="event"){
+    if(data.msg) log(`[${data.jobName}] ${data.msg}`);
+    if(mpIsHost) mpConnections.filter(c=>c!==fromConn).forEach(c=>{ try{c.send(data);}catch(e){} });
+  }
+}
+
+function mpBroadcast(){
+  if(!mpActive||!peer||mpConnections.length===0) return;
+  const state = {
+    type:"state", id:peer.id,
+    px:player.px, py:player.py,
+    jobName:job.name, jobColor:job.color,
+    app:player.app, walkPhase:player.walkPhase,
+    inCar:!!player.inCar, wLevel:player.wLevel, hp:player.hp
+  };
+  mpConnections.forEach(c=>{ try{c.send(state);}catch(e){} });
+}
+
+function mpBroadcastEvent(msg){
+  if(!mpActive||!peer||mpConnections.length===0) return;
+  mpConnections.forEach(c=>{ try{c.send({type:"event",msg,jobName:job.name});}catch(e){} });
+}
+
+function drawRemotePlayers(){
+  for(const id of Object.keys(remotePlayers)){
+    const r=remotePlayers[id];
+    if(!r) continue;
+    // fade out stale players (no update in 5s)
+    drawHuman(r.px,r.py,r.app||{skin:"#c68642",hair:"#111",shirt:r.jobColor||"#555",pants:"#1e293b"},r.walkPhase||0,1.08,r.jobColor||"#aaa");
+    // name tag showing job
+    ctx.save(); ctx.translate(r.px,r.py);
+    ctx.fillStyle="rgba(0,0,0,0.65)"; ctx.beginPath(); ctx.roundRect(-22,-28,44,13,3); ctx.fill();
+    ctx.fillStyle=r.jobColor||"#aaa"; ctx.font="bold 7px 'Segoe UI',sans-serif"; ctx.textAlign="center";
+    ctx.fillText((r.jobName||"Player").slice(0,12),0,-19);
+    ctx.restore();
+    if(r.wLevel>0){ ctx.save(); ctx.translate(r.px,r.py); ctx.fillStyle="#fbbf24"; ctx.font="9px serif"; ctx.textAlign="center"; ctx.fillText("★".repeat(r.wLevel),0,-36); ctx.restore(); }
+  }
 }
 
 // ── Phone ─────────────────────────────────────────────────────────────────────
