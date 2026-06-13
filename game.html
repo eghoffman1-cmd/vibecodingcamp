@@ -22,32 +22,53 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    background: rgba(0,0,10,0.85);
+    background: rgba(0,0,10,0.88);
     z-index: 10;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
   }
   #ui h1 {
-    font-size: 3em;
+    font-size: 2.8em;
     color: #00d4ff;
     text-shadow: 0 0 20px #00d4ff;
     text-align: center;
+    line-height: 1.15;
   }
-  #ui p { color: #aaa; font-size: 1.1em; text-align: center; max-width: 360px; }
+  #ui p { color: #aaa; font-size: 1em; text-align: center; max-width: 380px; }
   #nameInput {
-    padding: 14px 24px;
-    font-size: 1.4em;
+    padding: 12px 20px;
+    font-size: 1.3em;
     border: 2px solid #00d4ff;
     background: #001122;
     color: #fff;
     border-radius: 8px;
     outline: none;
-    width: 280px;
+    width: 260px;
     text-align: center;
   }
+  .diff-row {
+    display: flex;
+    gap: 12px;
+  }
+  .diff-btn {
+    padding: 12px 22px;
+    font-size: 1.1em;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    transition: transform 0.1s, box-shadow 0.1s, border-color 0.15s;
+    color: #fff;
+  }
+  .diff-btn:hover { transform: scale(1.06); }
+  .diff-btn.selected { border-color: #fff; box-shadow: 0 0 16px rgba(255,255,255,0.4); }
+  #btn-easy   { background: linear-gradient(135deg, #22bb55, #116622); }
+  #btn-medium { background: linear-gradient(135deg, #ffaa00, #885500); }
+  #btn-hard   { background: linear-gradient(135deg, #ff3333, #880011); }
   #startBtn {
-    padding: 14px 48px;
-    font-size: 1.3em;
+    padding: 13px 48px;
+    font-size: 1.25em;
     background: linear-gradient(135deg, #00d4ff, #0066cc);
     color: #fff;
     border: none;
@@ -59,16 +80,23 @@
     box-shadow: 0 4px 20px #00d4ff44;
   }
   #startBtn:hover { transform: scale(1.05); box-shadow: 0 6px 30px #00d4ff88; }
-  #controls { color: #666; font-size: 0.95em; text-align: center; }
+  #controls { color: #555; font-size: 0.9em; text-align: center; }
+  .diff-desc { color: #888; font-size: 0.9em; min-height: 18px; }
 </style>
 </head>
 <body>
 <div id="ui">
   <h1>🌊 RISING WATER<br>SURVIVAL!</h1>
-  <p>Survive for <strong style="color:#ff6">10 seconds</strong> as the boiling water rises! Jump on platforms to stay alive!</p>
+  <p>Survive the boiling water by staying on platforms!</p>
   <input id="nameInput" type="text" placeholder="Enter your name..." maxlength="16" />
+  <div class="diff-row">
+    <button class="diff-btn" id="btn-easy"   onclick="selectDiff('easy')">😊 Easy</button>
+    <button class="diff-btn" id="btn-medium" onclick="selectDiff('medium')">😤 Medium</button>
+    <button class="diff-btn" id="btn-hard"   onclick="selectDiff('hard')">💀 Hard</button>
+  </div>
+  <div class="diff-desc" id="diffDesc">Choose a difficulty</div>
   <button id="startBtn">PLAY!</button>
-  <div id="controls">← → Arrow Keys or A / D to move &nbsp;|&nbsp; Space or ↑ to jump</div>
+  <div id="controls">← → or A / D to move &nbsp;|&nbsp; Space or ↑ to jump (double jump!)</div>
 </div>
 <canvas id="gameCanvas"></canvas>
 
@@ -78,13 +106,84 @@ const ctx = canvas.getContext('2d');
 const ui = document.getElementById('ui');
 const nameInput = document.getElementById('nameInput');
 const startBtn = document.getElementById('startBtn');
+const diffDesc = document.getElementById('diffDesc');
 
 canvas.width = 600;
 canvas.height = 500;
 
 let playerName = 'Player';
-let gameState = 'menu'; // menu | playing | dead | win
+let gameState = 'menu';
 let audioCtx = null;
+let chosenDiff = null;
+
+const DIFFICULTIES = {
+  easy: {
+    label: 'Easy',
+    time: 15,
+    riseMultiplier: 0.75,
+    accelerate: false,
+    platforms: [
+      { x: 0,   y: 455, w: 600, h: 14 },
+      { x: 30,  y: 395, w: 150, h: 14 },
+      { x: 230, y: 350, w: 140, h: 14 },
+      { x: 420, y: 310, w: 140, h: 14 },
+      { x: 60,  y: 265, w: 150, h: 14 },
+      { x: 270, y: 225, w: 130, h: 14 },
+      { x: 440, y: 185, w: 130, h: 14 },
+      { x: 30,  y: 150, w: 150, h: 14 },
+      { x: 220, y: 110, w: 160, h: 14 },
+      { x: 420, y:  75, w: 150, h: 14 },
+    ],
+    color: '#22bb55',
+    desc: '😊 Slow water, lots of platforms — 15 seconds',
+  },
+  medium: {
+    label: 'Medium',
+    time: 10,
+    riseMultiplier: 1.0,
+    accelerate: false,
+    platforms: [
+      { x: 0,   y: 455, w: 600, h: 14 },
+      { x: 50,  y: 400, w: 120, h: 14 },
+      { x: 220, y: 340, w: 100, h: 14 },
+      { x: 380, y: 290, w: 110, h: 14 },
+      { x: 100, y: 240, w: 130, h: 14 },
+      { x: 310, y: 200, w: 100, h: 14 },
+      { x: 50,  y: 160, w: 120, h: 14 },
+      { x: 420, y: 140, w: 120, h: 14 },
+      { x: 200, y: 100, w: 180, h: 14 },
+    ],
+    color: '#ffaa00',
+    desc: '😤 Normal speed — survive 10 seconds',
+  },
+  hard: {
+    label: 'Hard',
+    time: 7,
+    riseMultiplier: 1.6,
+    accelerate: true,
+    platforms: [
+      { x: 0,   y: 455, w: 600, h: 14 },
+      { x: 80,  y: 390, w:  90, h: 14 },
+      { x: 280, y: 330, w:  80, h: 14 },
+      { x: 430, y: 280, w:  90, h: 14 },
+      { x: 120, y: 230, w:  80, h: 14 },
+      { x: 330, y: 185, w:  80, h: 14 },
+      { x: 70,  y: 140, w:  90, h: 14 },
+      { x: 430, y: 100, w:  90, h: 14 },
+      { x: 220, y:  60, w: 100, h: 14 },
+    ],
+    color: '#ff3333',
+    desc: '💀 Fast water, speeds up — only 7 seconds!',
+  },
+};
+
+function selectDiff(key) {
+  chosenDiff = key;
+  document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
+  document.getElementById('btn-' + key).classList.add('selected');
+  diffDesc.textContent = DIFFICULTIES[key].desc;
+}
+selectDiff('medium');
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
 function getAudio() {
@@ -92,8 +191,8 @@ function getAudio() {
   return audioCtx;
 }
 
-function playTone(freq, type, start, dur, vol = 0.3, ctx2 = null) {
-  const ac = ctx2 || getAudio();
+function playTone(freq, type, start, dur, vol = 0.3, ac2 = null) {
+  const ac = ac2 || getAudio();
   const osc = ac.createOscillator();
   const gain = ac.createGain();
   osc.connect(gain); gain.connect(ac.destination);
@@ -106,157 +205,106 @@ function playTone(freq, type, start, dur, vol = 0.3, ctx2 = null) {
 }
 
 function playWompWomp() {
-  // Classic trombone womp womp womp
   const ac = getAudio();
-  const notes = [
-    [400, 0.00], [350, 0.35], [300, 0.70],
-    [280, 1.05], [260, 1.20], [240, 1.40]
-  ];
-  notes.forEach(([freq, t]) => playTone(freq, 'sawtooth', t, 0.35, 0.25, ac));
-
-  // Extra sad wobbly effect
-  const osc = ac.createOscillator();
-  const lfo = ac.createOscillator();
-  const lfoGain = ac.createGain();
-  const gain = ac.createGain();
-  lfo.connect(lfoGain); lfoGain.connect(osc.frequency);
+  [[400,0],[350,0.35],[300,0.70],[280,1.05],[260,1.20],[240,1.40]]
+    .forEach(([f,t]) => playTone(f, 'sawtooth', t, 0.35, 0.25, ac));
+  const osc = ac.createOscillator(), lfo = ac.createOscillator();
+  const lfoG = ac.createGain(), gain = ac.createGain();
+  lfo.connect(lfoG); lfoG.connect(osc.frequency);
   osc.connect(gain); gain.connect(ac.destination);
-  lfo.frequency.value = 4;
-  lfoGain.gain.value = 20;
-  osc.type = 'sawtooth';
-  osc.frequency.value = 180;
+  lfo.frequency.value = 4; lfoG.gain.value = 20;
+  osc.type = 'sawtooth'; osc.frequency.value = 180;
   gain.gain.setValueAtTime(0.15, ac.currentTime + 1.6);
   gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 2.5);
-  lfo.start(ac.currentTime + 1.6); osc.start(ac.currentTime + 1.6);
-  lfo.stop(ac.currentTime + 2.6); osc.stop(ac.currentTime + 2.6);
+  lfo.start(ac.currentTime+1.6); osc.start(ac.currentTime+1.6);
+  lfo.stop(ac.currentTime+2.6); osc.stop(ac.currentTime+2.6);
 }
 
 function playWinMusic() {
   const ac = getAudio();
-  // Victory fanfare
   const melody = [
-    [523, 0.0, 0.15], [523, 0.15, 0.15], [523, 0.30, 0.15],
-    [659, 0.45, 0.40],
-    [587, 0.90, 0.15], [523, 1.05, 0.15], [494, 1.20, 0.15],
-    [659, 1.40, 0.60],
-    [659, 2.05, 0.15], [622, 2.20, 0.15], [587, 2.35, 0.15],
-    [554, 2.55, 0.15], [587, 2.75, 0.60],
-    [415, 3.40, 0.20], [523, 3.65, 0.15], [494, 3.85, 0.15],
-    [440, 4.05, 0.15], [523, 4.25, 0.60],
-    [523, 4.90, 0.15], [659, 5.10, 0.60],
-    [784, 5.75, 1.00],
+    [523,0.0,0.15],[523,0.15,0.15],[523,0.30,0.15],[659,0.45,0.40],
+    [587,0.90,0.15],[523,1.05,0.15],[494,1.20,0.15],[659,1.40,0.60],
+    [659,2.05,0.15],[622,2.20,0.15],[587,2.35,0.15],[554,2.55,0.15],
+    [587,2.75,0.60],[415,3.40,0.20],[523,3.65,0.15],[494,3.85,0.15],
+    [440,4.05,0.15],[523,4.25,0.60],[523,4.90,0.15],[659,5.10,0.60],[784,5.75,1.00],
   ];
-  melody.forEach(([freq, t, dur]) => playTone(freq, 'square', t, dur, 0.22, ac));
-
-  // Harmony
-  const harmony = [
-    [392, 0.45, 0.40], [349, 0.90, 0.50], [392, 1.40, 0.60],
-    [311, 2.55, 0.15], [349, 2.75, 0.60], [330, 3.65, 0.50],
-    [392, 4.25, 0.60], [392, 4.90, 0.20], [494, 5.10, 0.60],
-    [587, 5.75, 1.00],
-  ];
-  harmony.forEach(([freq, t, dur]) => playTone(freq, 'triangle', t, dur, 0.13, ac));
-
-  // Bass
-  const bass = [
-    [131, 0.0, 0.40], [131, 0.45, 0.40], [98, 0.90, 0.50],
-    [110, 1.40, 0.60], [123, 2.05, 0.50], [130, 2.55, 0.60],
-    [98, 3.40, 0.80], [110, 4.25, 0.60], [131, 4.90, 0.30],
-    [131, 5.10, 0.60], [131, 5.75, 1.00],
-  ];
-  bass.forEach(([freq, t, dur]) => playTone(freq, 'sawtooth', t, dur, 0.18, ac));
+  melody.forEach(([f,t,d]) => playTone(f,'square',t,d,0.22,ac));
+  [[392,0.45,0.40],[349,0.90,0.50],[392,1.40,0.60],[311,2.55,0.15],
+   [349,2.75,0.60],[330,3.65,0.50],[392,4.25,0.60],[392,4.90,0.20],
+   [494,5.10,0.60],[587,5.75,1.00]]
+    .forEach(([f,t,d]) => playTone(f,'triangle',t,d,0.13,ac));
+  [[131,0.0,0.40],[131,0.45,0.40],[98,0.90,0.50],[110,1.40,0.60],
+   [123,2.05,0.50],[130,2.55,0.60],[98,3.40,0.80],[110,4.25,0.60],
+   [131,4.90,0.30],[131,5.10,0.60],[131,5.75,1.00]]
+    .forEach(([f,t,d]) => playTone(f,'sawtooth',t,d,0.18,ac));
 }
 
 function playJumpSound() {
   const ac = getAudio();
-  const osc = ac.createOscillator();
-  const gain = ac.createGain();
+  const osc = ac.createOscillator(), gain = ac.createGain();
   osc.connect(gain); gain.connect(ac.destination);
   osc.type = 'sine';
   osc.frequency.setValueAtTime(200, ac.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(600, ac.currentTime + 0.12);
+  osc.frequency.exponentialRampToValueAtTime(600, ac.currentTime+0.12);
   gain.gain.setValueAtTime(0.2, ac.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.15);
-  osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.2);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+0.15);
+  osc.start(ac.currentTime); osc.stop(ac.currentTime+0.2);
 }
 
 function playBubbleSound() {
   const ac = getAudio();
-  const osc = ac.createOscillator();
-  const gain = ac.createGain();
+  const osc = ac.createOscillator(), gain = ac.createGain();
   osc.connect(gain); gain.connect(ac.destination);
   osc.type = 'sine';
-  const f = 300 + Math.random() * 400;
+  const f = 300 + Math.random()*400;
   osc.frequency.setValueAtTime(f, ac.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(f * 0.5, ac.currentTime + 0.08);
+  osc.frequency.exponentialRampToValueAtTime(f*0.5, ac.currentTime+0.08);
   gain.gain.setValueAtTime(0.05, ac.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.1);
-  osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.12);
+  gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+0.1);
+  osc.start(ac.currentTime); osc.stop(ac.currentTime+0.12);
 }
 
 // ─── Game State ───────────────────────────────────────────────────────────────
 const GRAVITY = 0.5;
 const JUMP_FORCE = -12;
 const SPEED = 4;
-const TOTAL_TIME = 10;
 
-let player, platforms, waterY, waterRiseRate, timer, keys, bubbles, particles;
-let winSoundPlayed, deathSoundPlayed;
-
-const PLATFORM_DEFS = [
-  { x: 50,  y: 400, w: 120, h: 14 },
-  { x: 220, y: 340, w: 100, h: 14 },
-  { x: 380, y: 290, w: 110, h: 14 },
-  { x: 100, y: 240, w: 130, h: 14 },
-  { x: 310, y: 200, w: 100, h: 14 },
-  { x: 50,  y: 160, w: 120, h: 14 },
-  { x: 420, y: 140, w: 120, h: 14 },
-  { x: 200, y: 100, w: 180, h: 14 },
-  { x: 0,   y: 455, w: 600, h: 14 }, // ground
-];
+let player, platforms, waterY, waterRiseRate, timer, totalTime, keys, bubbles, particles;
+let winSoundPlayed, deathSoundPlayed, diffConfig, bubbleTimer, frame;
 
 function initGame() {
-  player = {
-    x: 270, y: 380, w: 32, h: 42,
-    vx: 0, vy: 0,
-    onGround: false,
-    jumpsLeft: 2,
-    facing: 1,
-  };
-  platforms = PLATFORM_DEFS.map(p => ({ ...p }));
+  diffConfig = DIFFICULTIES[chosenDiff];
+  totalTime = diffConfig.time;
+  player = { x: 270, y: 380, w: 32, h: 42, vx: 0, vy: 0, onGround: false, jumpsLeft: 2, facing: 1 };
+  platforms = diffConfig.platforms.map(p => ({ ...p }));
   waterY = canvas.height + 20;
-  waterRiseRate = (canvas.height + 20) / (TOTAL_TIME * 60); // pixels per frame to cover screen in 10s
-  timer = TOTAL_TIME;
-  keys = {};
-  bubbles = [];
-  particles = [];
-  winSoundPlayed = false;
-  deathSoundPlayed = false;
+  waterRiseRate = (canvas.height + 20) / (totalTime * 60) * diffConfig.riseMultiplier;
+  timer = totalTime;
+  keys = {}; bubbles = []; particles = [];
+  winSoundPlayed = false; deathSoundPlayed = false;
+  bubbleTimer = 0; frame = 0;
   gameState = 'playing';
 }
 
 // ─── Input ────────────────────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   keys[e.code] = true;
-  if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && gameState === 'playing') {
+  if ((e.code==='Space'||e.code==='ArrowUp'||e.code==='KeyW') && gameState==='playing') {
     if (player.jumpsLeft > 0) {
-      player.vy = JUMP_FORCE;
-      player.jumpsLeft--;
-      player.onGround = false;
+      player.vy = JUMP_FORCE; player.jumpsLeft--; player.onGround = false;
       playJumpSound();
     }
     e.preventDefault();
   }
-  if (e.code === 'Space' && (gameState === 'dead' || gameState === 'win')) {
-    restartGame();
-  }
+  if (e.code==='Space' && (gameState==='dead'||gameState==='win')) restartGame();
 });
 document.addEventListener('keyup', e => { keys[e.code] = false; });
 
 // ─── Physics ──────────────────────────────────────────────────────────────────
 function updatePlayer(dt) {
-  if (keys['ArrowLeft'] || keys['KeyA']) { player.vx = -SPEED; player.facing = -1; }
-  else if (keys['ArrowRight'] || keys['KeyD']) { player.vx = SPEED; player.facing = 1; }
+  if (keys['ArrowLeft']||keys['KeyA']) { player.vx = -SPEED; player.facing = -1; }
+  else if (keys['ArrowRight']||keys['KeyD']) { player.vx = SPEED; player.facing = 1; }
   else player.vx = 0;
 
   player.vy += GRAVITY;
@@ -265,28 +313,16 @@ function updatePlayer(dt) {
 
   player.onGround = false;
   for (const plat of platforms) {
-    if (
-      player.x + player.w > plat.x &&
-      player.x < plat.x + plat.w &&
-      player.y + player.h > plat.y &&
-      player.y + player.h < plat.y + plat.h + Math.abs(player.vy) + 1 &&
-      player.vy >= 0
-    ) {
+    if (player.x+player.w > plat.x && player.x < plat.x+plat.w &&
+        player.y+player.h > plat.y && player.y+player.h < plat.y+plat.h+Math.abs(player.vy)+1 &&
+        player.vy >= 0) {
       player.y = plat.y - player.h;
-      player.vy = 0;
-      player.onGround = true;
-      player.jumpsLeft = 2;
+      player.vy = 0; player.onGround = true; player.jumpsLeft = 2;
     }
   }
-
-  // Wall wrap
-  if (player.x + player.w < 0) player.x = canvas.width;
+  if (player.x+player.w < 0) player.x = canvas.width;
   if (player.x > canvas.width) player.x = -player.w;
-
-  // Fell off bottom
-  if (player.y > canvas.height + 100) {
-    triggerDeath();
-  }
+  if (player.y > canvas.height + 100) triggerDeath();
 }
 
 function triggerDeath() {
@@ -306,73 +342,50 @@ function triggerWin() {
 // ─── Particles ────────────────────────────────────────────────────────────────
 function spawnDeathParticles() {
   for (let i = 0; i < 40; i++) {
-    particles.push({
-      x: player.x + player.w/2, y: player.y + player.h/2,
-      vx: (Math.random()-0.5)*8, vy: (Math.random()-1.5)*8,
-      life: 1, maxLife: 1,
-      color: `hsl(${Math.random()*30+200},80%,60%)`,
-      r: Math.random()*6+2, type: 'death'
-    });
+    particles.push({ x: player.x+player.w/2, y: player.y+player.h/2,
+      vx:(Math.random()-0.5)*8, vy:(Math.random()-1.5)*8,
+      life:1, color:`hsl(${Math.random()*30+200},80%,60%)`, r:Math.random()*6+2 });
   }
 }
-
 function spawnWinParticles() {
-  for (let i = 0; i < 80; i++) {
-    particles.push({
-      x: Math.random()*canvas.width, y: Math.random()*canvas.height,
-      vx: (Math.random()-0.5)*6, vy: (Math.random()-2)*6,
-      life: 1, maxLife: 1,
-      color: `hsl(${Math.random()*360},90%,65%)`,
-      r: Math.random()*8+2, type: 'win'
-    });
+  for (let i = 0; i < 100; i++) {
+    particles.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height,
+      vx:(Math.random()-0.5)*6, vy:(Math.random()-2)*6,
+      life:1, color:`hsl(${Math.random()*360},90%,65%)`, r:Math.random()*8+2 });
   }
 }
-
 function updateParticles() {
   for (let i = particles.length-1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx; p.y += p.vy;
-    p.vy += 0.15;
-    p.life -= 0.018;
-    if (p.life <= 0) particles.splice(i, 1);
+    p.x += p.vx; p.y += p.vy; p.vy += 0.15; p.life -= 0.018;
+    if (p.life <= 0) particles.splice(i,1);
   }
 }
 
 // ─── Bubbles ──────────────────────────────────────────────────────────────────
-let bubbleTimer = 0;
 function updateBubbles() {
   bubbleTimer++;
   if (bubbleTimer % 8 === 0) {
-    bubbles.push({
-      x: Math.random()*canvas.width,
-      y: waterY + Math.random()*60,
-      r: Math.random()*5+2,
-      speed: Math.random()*1.5+0.5,
-    });
+    bubbles.push({ x:Math.random()*canvas.width, y:waterY+Math.random()*60, r:Math.random()*5+2, speed:Math.random()*1.5+0.5 });
     if (Math.random() < 0.1) playBubbleSound();
   }
   for (let i = bubbles.length-1; i >= 0; i--) {
     bubbles[i].y -= bubbles[i].speed;
-    if (bubbles[i].y < waterY - 20) bubbles.splice(i, 1);
+    if (bubbles[i].y < waterY - 20) bubbles.splice(i,1);
   }
 }
 
 // ─── Drawing ──────────────────────────────────────────────────────────────────
-let frame = 0;
 function drawBackground() {
   const grad = ctx.createLinearGradient(0,0,0,canvas.height);
   grad.addColorStop(0, '#0a0a2e');
   grad.addColorStop(1, '#001a0a');
   ctx.fillStyle = grad;
   ctx.fillRect(0,0,canvas.width,canvas.height);
-
-  // stars
   ctx.fillStyle = 'rgba(255,255,255,0.4)';
   for (let i = 0; i < 40; i++) {
-    const sx = (i*137.5+50)%canvas.width;
-    const sy = (i*97.3+30)%200;
-    const twinkle = 0.3 + 0.7*Math.abs(Math.sin(frame*0.03+i));
-    ctx.globalAlpha = twinkle;
+    const sx = (i*137.5+50)%canvas.width, sy = (i*97.3+30)%200;
+    ctx.globalAlpha = 0.3 + 0.7*Math.abs(Math.sin(frame*0.03+i));
     ctx.fillRect(sx, sy, 1.5, 1.5);
   }
   ctx.globalAlpha = 1;
@@ -380,223 +393,159 @@ function drawBackground() {
 
 function drawPlatforms() {
   platforms.forEach(p => {
-    // platform body
     const grad = ctx.createLinearGradient(p.x, p.y, p.x, p.y+p.h);
-    grad.addColorStop(0, '#8B5E3C');
-    grad.addColorStop(1, '#5C3D1A');
+    grad.addColorStop(0, '#8B5E3C'); grad.addColorStop(1, '#5C3D1A');
     ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.roundRect(p.x, p.y, p.w, p.h, 4);
-    ctx.fill();
-
-    // top highlight
+    ctx.beginPath(); ctx.roundRect(p.x, p.y, p.w, p.h, 4); ctx.fill();
     ctx.fillStyle = 'rgba(255,200,120,0.3)';
     ctx.fillRect(p.x+4, p.y+2, p.w-8, 3);
-
-    // grass
     ctx.fillStyle = '#4a9e4a';
-    ctx.beginPath();
-    ctx.roundRect(p.x+2, p.y-4, p.w-4, 7, 3);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(p.x+2, p.y-4, p.w-4, 7, 3); ctx.fill();
   });
 }
 
 function drawWater() {
-  // Wave effect
   ctx.save();
   ctx.beginPath();
   ctx.moveTo(0, canvas.height);
   ctx.lineTo(0, waterY + Math.sin(frame*0.08)*8);
   for (let x = 0; x <= canvas.width; x += 10) {
-    const wave = Math.sin(x*0.04 + frame*0.1)*10 + Math.sin(x*0.07 - frame*0.07)*5;
+    const wave = Math.sin(x*0.04+frame*0.1)*10 + Math.sin(x*0.07-frame*0.07)*5;
     ctx.lineTo(x, waterY + wave);
   }
   ctx.lineTo(canvas.width, waterY + Math.sin(frame*0.08)*8);
   ctx.lineTo(canvas.width, canvas.height);
   ctx.closePath();
 
+  // water color varies by difficulty
+  const topColor = chosenDiff === 'hard' ? 'rgba(255,80,0,0.85)' :
+                   chosenDiff === 'medium' ? 'rgba(0,200,255,0.85)' :
+                                             'rgba(0,220,180,0.8)';
+  const midColor = chosenDiff === 'hard' ? 'rgba(180,20,0,0.9)' :
+                   chosenDiff === 'medium' ? 'rgba(0,100,220,0.9)' :
+                                             'rgba(0,120,180,0.9)';
   const wGrad = ctx.createLinearGradient(0, waterY, 0, canvas.height);
-  wGrad.addColorStop(0, 'rgba(0,200,255,0.85)');
-  wGrad.addColorStop(0.3, 'rgba(0,100,220,0.9)');
-  wGrad.addColorStop(1, 'rgba(0,40,120,0.95)');
-  ctx.fillStyle = wGrad;
-  ctx.fill();
+  wGrad.addColorStop(0, topColor); wGrad.addColorStop(0.3, midColor);
+  wGrad.addColorStop(1, 'rgba(0,20,80,0.95)');
+  ctx.fillStyle = wGrad; ctx.fill();
 
-  // boiling shimmer
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
   for (let x = 0; x < canvas.width; x += 20) {
-    const wave = Math.sin(x*0.04 + frame*0.1)*10 + Math.sin(x*0.07 - frame*0.07)*5;
-    ctx.beginPath();
-    ctx.moveTo(x, waterY + wave);
-    ctx.lineTo(x+10, waterY + wave + 3);
-    ctx.stroke();
+    const wave = Math.sin(x*0.04+frame*0.1)*10 + Math.sin(x*0.07-frame*0.07)*5;
+    ctx.beginPath(); ctx.moveTo(x, waterY+wave); ctx.lineTo(x+10, waterY+wave+3); ctx.stroke();
   }
   ctx.restore();
 
-  // bubbles
   bubbles.forEach(b => {
     if (b.y > waterY) return;
-    ctx.beginPath();
-    ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
-    ctx.strokeStyle = 'rgba(180,240,255,0.7)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+    ctx.strokeStyle = 'rgba(180,240,255,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
   });
 }
 
 function drawPlayer() {
-  const px = player.x, py = player.y;
-  const pw = player.w, ph = player.h;
-  const cx = px + pw/2;
+  const px=player.x, py=player.y, pw=player.w, ph=player.h, cx=px+pw/2;
   ctx.save();
-  ctx.translate(cx, py + ph/2);
-  if (player.facing === -1) ctx.scale(-1, 1);
+  ctx.translate(cx, py+ph/2);
+  if (player.facing===-1) ctx.scale(-1,1);
 
-  // body
-  ctx.fillStyle = '#e8a050';
-  ctx.beginPath();
-  ctx.roundRect(-pw/2, -ph/2, pw, ph*0.55, 6);
-  ctx.fill();
+  ctx.fillStyle='#e8a050'; ctx.beginPath();
+  ctx.roundRect(-pw/2,-ph/2,pw,ph*0.55,6); ctx.fill();
+  ctx.fillStyle='#3388ff'; ctx.beginPath();
+  ctx.roundRect(-pw/2,-ph/2+ph*0.25,pw,ph*0.35,[0,0,5,5]); ctx.fill();
 
-  // shirt
-  ctx.fillStyle = '#3388ff';
-  ctx.beginPath();
-  ctx.roundRect(-pw/2, -ph/2 + ph*0.25, pw, ph*0.35, [0,0,5,5]);
-  ctx.fill();
-
-  // legs
-  const legOff = gameState === 'playing' && (keys['ArrowLeft']||keys['KeyA']||keys['ArrowRight']||keys['KeyD'])
+  const legOff = gameState==='playing' && (keys['ArrowLeft']||keys['KeyA']||keys['ArrowRight']||keys['KeyD'])
     ? Math.sin(frame*0.3)*8 : 0;
-  ctx.fillStyle = '#224488';
-  ctx.fillRect(-pw/2+2, ph*0.15, pw/2-3, ph*0.38+legOff);
-  ctx.fillRect(2, ph*0.15, pw/2-3, ph*0.38-legOff);
+  ctx.fillStyle='#224488';
+  ctx.fillRect(-pw/2+2,ph*0.15,pw/2-3,ph*0.38+legOff);
+  ctx.fillRect(2,ph*0.15,pw/2-3,ph*0.38-legOff);
+  ctx.fillStyle='#111';
+  ctx.beginPath(); ctx.roundRect(-pw/2,ph*0.38+legOff,pw/2-1,8,3); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(2,ph*0.38-legOff,pw/2-1,8,3); ctx.fill();
 
-  // shoes
-  ctx.fillStyle = '#111';
-  ctx.beginPath();
-  ctx.roundRect(-pw/2, ph*0.38+legOff, pw/2-1, 8, 3);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.roundRect(2, ph*0.38-legOff, pw/2-1, 8, 3);
-  ctx.fill();
+  ctx.fillStyle='#f5c085'; ctx.beginPath(); ctx.arc(0,-ph/2-8,13,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#333'; ctx.beginPath(); ctx.arc(4,-ph/2-9,2.5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(5,-ph/2-10,1,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#5c3d1a'; ctx.beginPath();
+  ctx.ellipse(0,-ph/2-18,13,7,0,Math.PI,0); ctx.fill();
 
-  // head
-  ctx.fillStyle = '#f5c085';
-  ctx.beginPath();
-  ctx.arc(0, -ph/2-8, 13, 0, Math.PI*2);
-  ctx.fill();
-
-  // eyes
-  ctx.fillStyle = '#333';
-  ctx.beginPath();
-  ctx.arc(4, -ph/2-9, 2.5, 0, Math.PI*2);
-  ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath();
-  ctx.arc(5, -ph/2-10, 1, 0, Math.PI*2);
-  ctx.fill();
-
-  // hair
-  ctx.fillStyle = '#5c3d1a';
-  ctx.beginPath();
-  ctx.ellipse(0, -ph/2-18, 13, 7, 0, Math.PI, 0);
-  ctx.fill();
-
-  // name tag
   ctx.restore();
-  ctx.fillStyle = 'rgba(0,0,0,0.6)';
-  const nameW = ctx.measureText(playerName).width + 10;
-  ctx.fillRect(cx - nameW/2, py - 36, nameW, 18);
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 11px Segoe UI';
-  ctx.textAlign = 'center';
-  ctx.fillText(playerName, cx, py - 22);
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.font='bold 11px Segoe UI';
+  const nameW = ctx.measureText(playerName).width+10;
+  ctx.fillRect(cx-nameW/2, py-36, nameW, 18);
+  ctx.fillStyle='#fff'; ctx.textAlign='center';
+  ctx.fillText(playerName, cx, py-22);
 }
 
 function drawHUD() {
-  // Timer bar background
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillRect(10, 10, 200, 24);
+  ctx.fillStyle='rgba(0,0,0,0.5)';
+  ctx.fillRect(10,10,200,24);
+  const frac = Math.max(0, timer/totalTime);
+  ctx.fillStyle = frac>0.5 ? '#00ff88' : frac>0.25 ? '#ffcc00' : '#ff4444';
+  ctx.fillRect(10,10,200*frac,24);
+  ctx.strokeStyle='#fff'; ctx.lineWidth=1; ctx.strokeRect(10,10,200,24);
+  ctx.fillStyle='#fff'; ctx.font='bold 13px Segoe UI'; ctx.textAlign='left';
+  ctx.fillText(`⏱ Survive: ${Math.ceil(Math.max(0,timer))}s`, 16, 27);
 
-  const frac = Math.max(0, timer / TOTAL_TIME);
-  const barColor = frac > 0.5 ? '#00ff88' : frac > 0.25 ? '#ffcc00' : '#ff4444';
-  ctx.fillStyle = barColor;
-  ctx.fillRect(10, 10, 200*frac, 24);
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(10, 10, 200, 24);
+  // difficulty badge
+  const dc = diffConfig.color;
+  ctx.fillStyle = dc + 'cc';
+  ctx.beginPath(); ctx.roundRect(10,40,80,20,4); ctx.fill();
+  ctx.fillStyle='#fff'; ctx.font='bold 11px Segoe UI';
+  ctx.fillText(diffConfig.label.toUpperCase(), 16, 54);
 
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 13px Segoe UI';
-  ctx.textAlign = 'left';
-  ctx.fillText(`⏱ Survive: ${Math.ceil(timer)}s`, 16, 27);
-
-  // Water level indicator
-  ctx.fillStyle = 'rgba(0,180,255,0.8)';
-  ctx.font = '12px Segoe UI';
-  ctx.textAlign = 'right';
+  ctx.fillStyle='rgba(0,180,255,0.8)'; ctx.font='12px Segoe UI'; ctx.textAlign='right';
   ctx.fillText('🌊 BOILING WATER RISING!', canvas.width-10, 27);
+
+  if (diffConfig.accelerate && gameState==='playing') {
+    ctx.fillStyle='rgba(255,100,50,0.9)'; ctx.font='bold 11px Segoe UI'; ctx.textAlign='right';
+    ctx.fillText('⚠ Water is ACCELERATING!', canvas.width-10, 47);
+  }
 }
 
 function drawParticles() {
   particles.forEach(p => {
     ctx.globalAlpha = p.life;
     ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI*2);
-    ctx.fill();
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r*p.life, 0, Math.PI*2); ctx.fill();
   });
   ctx.globalAlpha = 1;
 }
 
 function drawOverlay() {
   if (gameState === 'dead') {
-    ctx.fillStyle = 'rgba(0,0,30,0.75)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ff4444';
-    ctx.font = 'bold 64px Segoe UI';
+    ctx.fillStyle='rgba(0,0,30,0.75)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.textAlign='center';
+    ctx.fillStyle='#ff4444'; ctx.font='bold 64px Segoe UI';
     ctx.fillText('💀 YOU DIED! 💀', canvas.width/2, 190);
-
-    ctx.fillStyle = '#ff8888';
-    ctx.font = '28px Segoe UI';
+    ctx.fillStyle='#ff8888'; ctx.font='28px Segoe UI';
     ctx.fillText(`Too bad, ${playerName}...`, canvas.width/2, 240);
-    ctx.fillStyle = '#aaa';
-    ctx.font = '20px Segoe UI';
+    ctx.fillStyle='#aaa'; ctx.font='20px Segoe UI';
     ctx.fillText('Womp womp womp 🎺', canvas.width/2, 275);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 22px Segoe UI';
+    ctx.fillStyle='#fff'; ctx.font='bold 22px Segoe UI';
     ctx.fillText('Press SPACE to try again', canvas.width/2, 330);
   }
 
   if (gameState === 'win') {
-    ctx.fillStyle = 'rgba(0,10,0,0.7)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const glow = ctx.createRadialGradient(canvas.width/2, 180, 10, canvas.width/2, 180, 200);
-    glow.addColorStop(0, 'rgba(255,220,0,0.3)');
-    glow.addColorStop(1, 'transparent');
-    ctx.fillStyle = glow;
-    ctx.fillRect(0,0,canvas.width,canvas.height);
-
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#ffee00';
-    ctx.font = 'bold 58px Segoe UI';
-    ctx.fillText('🏆 YOU WIN! 🏆', canvas.width/2, 185);
-
-    ctx.fillStyle = '#aaffaa';
-    ctx.font = '26px Segoe UI';
-    ctx.fillText(`Amazing, ${playerName}!`, canvas.width/2, 235);
-    ctx.fillStyle = '#88ff88';
-    ctx.font = '20px Segoe UI';
-    ctx.fillText('You survived the boiling water! 🎉', canvas.width/2, 268);
-
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 22px Segoe UI';
-    ctx.fillText('Press SPACE to play again', canvas.width/2, 320);
+    ctx.fillStyle='rgba(0,10,0,0.7)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+    const glow = ctx.createRadialGradient(canvas.width/2,180,10,canvas.width/2,180,200);
+    glow.addColorStop(0,'rgba(255,220,0,0.3)'); glow.addColorStop(1,'transparent');
+    ctx.fillStyle=glow; ctx.fillRect(0,0,canvas.width,canvas.height);
+    ctx.textAlign='center';
+    ctx.fillStyle='#ffee00'; ctx.font='bold 58px Segoe UI';
+    ctx.fillText('🏆 YOU WIN! 🏆', canvas.width/2, 180);
+    ctx.fillStyle='#aaffaa'; ctx.font='26px Segoe UI';
+    ctx.fillText(`Amazing, ${playerName}!`, canvas.width/2, 228);
+    ctx.fillStyle='#ffcc44'; ctx.font='20px Segoe UI';
+    const medal = chosenDiff==='hard' ? '🔥 LEGENDARY — Hard mode!' :
+                  chosenDiff==='medium' ? '⭐ Great — Medium cleared!' :
+                                         '✅ Nice — Easy cleared!';
+    ctx.fillText(medal, canvas.width/2, 262);
+    ctx.fillStyle='#88ff88'; ctx.font='18px Segoe UI';
+    ctx.fillText('You survived the boiling water! 🎉', canvas.width/2, 295);
+    ctx.fillStyle='#fff'; ctx.font='bold 22px Segoe UI';
+    ctx.fillText('Press SPACE to play again', canvas.width/2, 340);
   }
 }
 
@@ -608,56 +557,46 @@ function loop(ts) {
   lastTime = ts;
   frame++;
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
   drawBackground();
   drawPlatforms();
 
   if (gameState === 'playing') {
     updatePlayer(dt);
-    waterY -= waterRiseRate * dt;
+    // Hard mode: water accelerates over time
+    const elapsed = totalTime - timer;
+    const accel = diffConfig.accelerate ? 1 + elapsed * 0.08 : 1;
+    waterY -= waterRiseRate * dt * accel;
     timer -= dt / 60;
     updateBubbles();
     updateParticles();
 
-    // Check water collision
-    if (player.y + player.h > waterY + 5) {
-      triggerDeath();
-    }
-
-    if (timer <= 0) {
-      timer = 0;
-      triggerWin();
-    }
+    if (player.y + player.h > waterY + 5) triggerDeath();
+    if (timer <= 0) { timer = 0; triggerWin(); }
   } else {
     updateBubbles();
     updateParticles();
   }
 
   drawWater();
-  if (gameState !== 'dead' || true) drawPlayer();
+  drawPlayer();
   drawParticles();
   drawHUD();
   drawOverlay();
-
   requestAnimationFrame(loop);
 }
 
-function restartGame() {
-  initGame();
-}
+function restartGame() { initGame(); }
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 startBtn.addEventListener('click', () => {
   playerName = nameInput.value.trim() || 'Player';
   ui.style.display = 'none';
-  getAudio(); // unlock audio context
+  getAudio();
   initGame();
   requestAnimationFrame(loop);
 });
-
-nameInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') startBtn.click();
-});
+nameInput.addEventListener('keydown', e => { if (e.key==='Enter') startBtn.click(); });
 </script>
 </body>
 </html>
