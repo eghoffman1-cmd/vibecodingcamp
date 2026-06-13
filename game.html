@@ -100,8 +100,8 @@ const LEVEL_ORDER = ['easy', 'medium', 'hard'];
 
 const DIFFICULTIES = {
   easy: {
-    label: 'Easy', emoji: '😊', time: 15,
-    riseMultiplier: 0.75, accelerate: false,
+    label: 'Easy', emoji: '😊', time: 12,
+    riseMultiplier: 0.95, accelerate: false,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
       { x: 30,  y: 395, w: 150, h: 14 },
@@ -119,7 +119,7 @@ const DIFFICULTIES = {
   },
   medium: {
     label: 'Medium', emoji: '😤', time: 12,
-    riseMultiplier: 0.7, accelerate: false,
+    riseMultiplier: 1.1, accelerate: false,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
       { x: 50,  y: 400, w: 120, h: 14 },
@@ -135,8 +135,8 @@ const DIFFICULTIES = {
     waterTop: 'rgba(0,200,255,0.85)', waterMid: 'rgba(0,100,220,0.9)',
   },
   hard: {
-    label: 'Hard', emoji: '💀', time: 15,
-    riseMultiplier: 0.65, accelerate: false,
+    label: 'Hard', emoji: '💀', time: 12,
+    riseMultiplier: 1.2, accelerate: true,
     platforms: [
       { x: 0,   y: 455, w: 600, h: 14 },
       { x: 60,  y: 390, w: 120, h: 14 },
@@ -530,7 +530,7 @@ function loop(ts) {
   if (gameState==='playing') {
     updatePlayer(dt);
     const elapsed=totalTime-timer;
-    const accel=diffConfig.accelerate?1+elapsed*0.02:1;
+    const accel=diffConfig.accelerate?1+elapsed*0.03:1;
     waterY-=waterRiseRate*dt*accel;
     timer-=dt/60;
     updateBubbles(); updateParticles();
