@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Switch Heist - Sneak for the Switch</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: 'Courier New', monospace; color: #fff; overflow: hidden; }
+  #ui { display: flex; gap: 30px; align-items: center; margin-bottom: 10px; }
+  #noise-bar-wrap { display: flex; align-items: center; gap: 8px; }
+  #noise-bar { width: 150px; height: 16px; background: #333; border-radius: 8px; overflow: hidden; border: 1px solid #555; }
+  #noise-fill { height: 100%; width: 0%; background: linear-gradient(90deg, #22c55e, #eab308, #ef4444); border-radius: 8px; transition: width 0.1s; }
+  label { font-size: 13px; color: #aaa; }
+  #status { font-size: 13px; color: #facc15; min-width: 200px; text-align: center; }
+  canvas { border: 2px solid #334155; border-radius: 4px; }
+  #overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.82); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  #overlay h1 { font-size: 2.2rem; color: #facc15; text-shadow: 0 0 20px #facc1580; }
+  #overlay p { font-size: 0.95rem; color: #cbd5e1; max-width: 420px; text-align: center; line-height: 1.6; }
+  #overlay button { margin-top: 10px; padding: 12px 32px; background: #6366f1; color: white; border: none; border-radius: 8px; font-size: 1rem; font-family: inherit; cursor: pointer; transition: background 0.2s; }
+  #overlay button:hover { background: #4f46e5; }
+  #controls-hint { font-size: 11px; color: #64748b; }
+  #wrapper { position: relative; }
+</style>
+</head>
+<body>
+
+<div id="ui">
+  <div id="noise-bar-wrap">
+    <label>NOISE</label>
+    <div id="noise-bar"><div id="noise-fill"></div></div>
+  </div>
+  <div id="status">Sneak to your room and grab the Switch!</div>
+</div>
+
+<div id="wrapper">
+  <canvas id="c" width="640" height="500"></canvas>
+  <div id="overlay">
+    <h1>🎮 Switch Heist</h1>
+    <p>Everyone's home. You need your Nintendo Switch from your bedroom.<br><br>
+    <strong>Walk slowly</strong> — running makes noise.<br>
+    <strong>Stay out of sight</strong> — avoid the glow of their vision.<br>
+    <strong>Don't talk</strong> — silence is your weapon.<br><br>
+    Grab the Switch 🟥 and reach the front door 🚪 to escape!</p>
+    <p id="controls-hint">Arrow Keys / WASD to move &nbsp;|&nbsp; Hold SHIFT to (dangerously) run</p>
+    <button onclick="startGame()">Start Sneaking</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+
+// ─── Map ──────────────────────────────────────────────────────────────────────
+// Tile size
+const T = 20;
+const COLS = W / T; // 32
+const ROWS = H / T; // 25
+
+// Room layout (0=floor, 1=wall, 2=door-gap)
+// We'll define walls programmatically
+let walls = [];
+
+// House boundary + interior walls
+function buildMap() {
+  walls = [];
+  // Outer walls
+  for (let c = 0; c < COLS; c++) for (let r = 0; r < ROWS; r++) walls.push(false);
+
+  const wall = (c, r) => { if (c >= 0 && r >= 0 && c < COLS && r < ROWS) walls[r * COLS + c] = true; };
+  const row = (c0, c1, r) => { for (let c = c0; c <= c1; c++) wall(c, r); };
+  const col = (r0, r1, c) => { for (let r = r0; r <= r1; r++) wall(c, r); };
+
+  // Outer boundary
+  row(0, COLS - 1, 0); row(0, COLS - 1, ROWS - 1);
+  col(0, ROWS - 1, 0); col(0, ROWS - 1, COLS - 1);
+
+  // ─ Interior walls ─
+  // Horizontal divider: living room | hallway | bedrooms (row 13)
+  row(0, 18, 13); // left side (has gap at col 9)
+  row(20, COLS - 1, 13); // right side
+
+  // Vertical divider: hallway | living room on left (col 18)
+  col(0, 13, 18);
+  // gap at row 6 (hallway entrance from living room)
+
+  // Bedroom divider vertical col 18, rows 13-25
+  col(13, ROWS - 1, 18); // right side bedroom wall
+
+  // Bedroom split: two bedrooms, wall at row 19
+  row(18, COLS - 1, 19);
+  // door gap at col 22
+
+  // Kitchen divider (top right) col 18, rows 0-13 already done
+  // Kitchen/living horizontal at row 7, cols 18-32
+  row(18, COLS - 1, 7);
+  // door gap at col 25
+
+  // Remove door gaps
+  // Hallway <-> living room: col 18, row 6
+  walls[6 * COLS + 18] = false;
+  walls[7 * COLS + 18] = false;
+
+  // Living room top divider gap: row 13, col 9
+  walls[13 * COLS + 9] = false;
+  walls[13 * COLS + 10] = false;
+
+  // Kitchen door: row 7, col 25
+  walls[7 * COLS + 25] = false;
+  walls[7 * COLS + 26] = false;
+
+  // Hallway <-> bedrooms: row 13, col 20-21
+  walls[13 * COLS + 20] = false;
+  walls[13 * COLS + 21] = false;
+
+  // Bedroom door: row 19, col 22-23
+  walls[19 * COLS + 22] = false;
+  walls[19 * COLS + 23] = false;
+
+  // Bedroom 1 door: col 18, rows 16-17
+  walls[16 * COLS + 18] = false;
+  walls[17 * COLS + 18] = false;
+
+  // Front door (exit): left wall, rows 5-6 (col 0)
+  walls[10 * COLS + 0] = false;
+  walls[11 * COLS + 0] = false;
+}
+
+function isWall(px, py) {
+  const c = Math.floor(px / T), r = Math.floor(py / T);
+  if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return true;
+  return walls[r * COLS + c];
+}
+
+// ─── Entities ─────────────────────────────────────────────────────────────────
+let player, npcs, switchItem, gameState, noiseLevel, hasSwitch, frameCount;
+
+function startGame() {
+  document.getElementById('overlay').style.display = 'none';
+  buildMap();
+
+  player = { x: 50, y: 240, vx: 0, vy: 0, r: 7, speed: 1.2, running: false };
+  hasSwitch = false;
+  noiseLevel = 0;
+  gameState = 'playing';
+  frameCount = 0;
+
+  // Nintendo Switch item: in bedroom (bottom-left bedroom)
+  switchItem = { x: 80, y: 420, r: 9, collected: false };
+
+  // NPCs: family members
+  npcs = [
+    // Mom in living room, patrols
+    {
+      x: 280, y: 60, r: 8, angle: Math.PI * 0.5,
+      patrolPoints: [{x: 200, y: 60}, {x: 350, y: 60}, {x: 350, y: 110}, {x: 200, y: 110}],
+      patrolIdx: 0, speed: 0.5, visionRange: 120, visionAngle: Math.PI / 2.2,
+      hearingRange: 90, color: '#f97316', label: 'Mom', alertTimer: 0
+    },
+    // Dad in living room watching TV (stationary, faces player entry)
+    {
+      x: 120, y: 80, r: 8, angle: Math.PI * 0.5,
+      patrolPoints: [{x: 120, y: 80}],
+      patrolIdx: 0, speed: 0, visionRange: 130, visionAngle: Math.PI / 2.5,
+      hearingRange: 100, color: '#3b82f6', label: 'Dad', alertTimer: 0
+    },
+    // Sibling in kitchen
+    {
+      x: 480, y: 40, r: 8, angle: Math.PI,
+      patrolPoints: [{x: 430, y: 30}, {x: 580, y: 30}, {x: 580, y: 120}, {x: 430, y: 120}],
+      patrolIdx: 0, speed: 0.6, visionRange: 110, visionAngle: Math.PI / 2.5,
+      hearingRange: 80, color: '#a855f7', label: 'Sibling', alertTimer: 0
+    },
+    // Pet dog in hallway
+    {
+      x: 340, y: 280, r: 7, angle: 0,
+      patrolPoints: [{x: 300, y: 250}, {x: 380, y: 250}, {x: 380, y: 320}, {x: 300, y: 320}],
+      patrolIdx: 0, speed: 0.8, visionRange: 80, visionAngle: Math.PI / 1.8,
+      hearingRange: 130, color: '#84cc16', label: 'Dog', alertTimer: 0
+    }
+  ];
+
+  setStatus("Sneak to your room and grab the Switch!");
+  loop();
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+function getInput() {
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft'] || keys['a'] || keys['A']) dx -= 1;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+  if (keys['ArrowUp'] || keys['w'] || keys['W']) dy -= 1;
+  if (keys['ArrowDown'] || keys['s'] || keys['S']) dy += 1;
+  const running = !!(keys['Shift']);
+  return { dx, dy, running };
+}
+
+// ─── Physics ──────────────────────────────────────────────────────────────────
+function movePlayer(inp) {
+  const speed = inp.running ? player.speed * 2.8 : player.speed;
+  const len = Math.hypot(inp.dx, inp.dy);
+  if (len === 0) { player.vx *= 0.8; player.vy *= 0.8; return; }
+  player.vx = (inp.dx / len) * speed;
+  player.vy = (inp.dy / len) * speed;
+
+  let nx = player.x + player.vx;
+  let ny = player.y + player.vy;
+
+  const r = player.r;
+  const corners = [
+    {x: nx - r, y: ny - r}, {x: nx + r, y: ny - r},
+    {x: nx - r, y: ny + r}, {x: nx + r, y: ny + r}
+  ];
+  const hitX = corners.some(p => isWall(p.x, player.y + (p.y > player.y ? r : -r)));
+  const hitY = corners.some(p => isWall(player.x + (p.x > player.x ? r : -r), p.y));
+
+  if (!corners.some(p => isWall(nx, p.y > player.y ? ny + r : ny - r)) &&
+      !corners.some(p => isWall(p.x > player.x ? nx + r : nx - r, ny))) {
+    player.x = nx; player.y = ny;
+  } else {
+    // Try axis separately
+    const canX = !([{x: nx - r, y: player.y - r}, {x: nx + r, y: player.y - r}, {x: nx - r, y: player.y + r}, {x: nx + r, y: player.y + r}].some(p => isWall(p.x, p.y)));
+    const canY = !([{x: player.x - r, y: ny - r}, {x: player.x + r, y: ny - r}, {x: player.x - r, y: ny + r}, {x: player.x + r, y: ny + r}].some(p => isWall(p.x, p.y)));
+    if (canX) player.x = nx;
+    if (canY) player.y = ny;
+  }
+
+  player.x = Math.max(r, Math.min(W - r, player.x));
+  player.y = Math.max(r, Math.min(H - r, player.y));
+}
+
+// ─── NPC AI ───────────────────────────────────────────────────────────────────
+function updateNPC(npc) {
+  if (npc.patrolPoints.length <= 1) return;
+  const target = npc.patrolPoints[npc.patrolIdx];
+  const dx = target.x - npc.x, dy = target.y - npc.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 4) {
+    npc.patrolIdx = (npc.patrolIdx + 1) % npc.patrolPoints.length;
+  } else {
+    npc.x += (dx / dist) * npc.speed;
+    npc.y += (dy / dist) * npc.speed;
+    npc.angle = Math.atan2(dy, dx);
+  }
+}
+
+function lineOfSight(ax, ay, bx, by) {
+  const steps = 30;
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const x = ax + (bx - ax) * t;
+    const y = ay + (by - ay) * t;
+    if (isWall(x, y)) return false;
+  }
+  return true;
+}
+
+function canSeePlayer(npc) {
+  const dx = player.x - npc.x, dy = player.y - npc.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > npc.visionRange) return false;
+  const angleToPlayer = Math.atan2(dy, dx);
+  let diff = angleToPlayer - npc.angle;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  if (Math.abs(diff) > npc.visionAngle / 2) return false;
+  return lineOfSight(npc.x, npc.y, player.x, player.y);
+}
+
+function canHearPlayer(npc) {
+  const dist = Math.hypot(player.x - npc.x, player.y - npc.y);
+  return dist < npc.hearingRange * (noiseLevel / 100);
+}
+
+// ─── Noise ────────────────────────────────────────────────────────────────────
+function updateNoise(inp) {
+  const moving = inp.dx !== 0 || inp.dy !== 0;
+  if (!moving) { noiseLevel = Math.max(0, noiseLevel - 1.5); return; }
+  if (inp.running) noiseLevel = Math.min(100, noiseLevel + 4);
+  else noiseLevel = Math.max(0, Math.min(20, noiseLevel + 0.3));
+}
+
+// ─── Collision / Win / Lose ────────────────────────────────────────────────────
+function checkInteractions() {
+  // Grab switch
+  if (!switchItem.collected) {
+    const d = Math.hypot(player.x - switchItem.x, player.y - switchItem.y);
+    if (d < player.r + switchItem.r) {
+      switchItem.collected = true;
+      hasSwitch = true;
+      setStatus("Got the Switch! Now sneak to the front door! 🚪");
+    }
+  }
+
+  // Exit: front door left wall
+  if (hasSwitch && player.x < 15 && player.y > 195 && player.y < 235) {
+    gameOver('win');
+  }
+}
+
+function checkCaught() {
+  for (const npc of npcs) {
+    if (canSeePlayer(npc) || canHearPlayer(npc)) {
+      npc.alertTimer = (npc.alertTimer || 0) + 1;
+      if (npc.alertTimer > 50) { gameOver('caught', npc.label); return; }
+    } else {
+      npc.alertTimer = Math.max(0, (npc.alertTimer || 0) - 1);
+    }
+  }
+}
+
+function gameOver(type, who) {
+  gameState = 'over';
+  const ov = document.getElementById('overlay');
+  ov.style.display = 'flex';
+  ov.innerHTML = type === 'win'
+    ? `<h1>🎮 You escaped!</h1>
+       <p>You snagged the Nintendo Switch and slipped out the front door.<br>Time to game in peace. You absolute legend.</p>
+       <button onclick="startGame()">Play Again</button>`
+    : `<h1>😱 Busted by ${who}!</h1>
+       <p>${who} caught you sneaking around${who === 'Dog' ? ' — the dog started barking like crazy' : ''}.<br>Switch privileges: <strong>REVOKED</strong>. Try again?</p>
+       <button onclick="startGame()">Try Again</button>`;
+}
+
+function setStatus(msg) { document.getElementById('status').textContent = msg; }
+
+// ─── Drawing ──────────────────────────────────────────────────────────────────
+const ROOM_COLORS = {
+  floor: '#1e293b',
+  wall: '#0f172a',
+  livingRoom: '#1a2744',
+  kitchen: '#1a2d1a',
+  bedroom1: '#2d1a33',
+  bedroom2: '#1a2233',
+  hallway: '#252525',
+};
+
+function drawMap() {
+  // Draw floor zones
+  const zones = [
+    { x: 1, y: 1, w: 17, h: 12, color: '#1e3a5f' },        // Living room top
+    { x: 1, y: 13, w: 17, h: 12, color: '#1e3a5f' },        // Living room bottom
+    { x: 19, y: 8, w: 12, h: 5, color: '#1a3a1a' },         // Kitchen bottom
+    { x: 19, y: 1, w: 12, h: 6, color: '#1a3a1a' },         // Kitchen top
+    { x: 19, y: 14, w: 12, h: 5, color: '#2d1a40' },        // Hallway / bedroom area
+    { x: 1, y: 14, w: 17, h: 11, color: '#1a1a3a' },        // Your bedroom
+    { x: 19, y: 20, w: 12, h: 5, color: '#1a2b1a' },        // Other bedroom
+  ];
+  for (const z of zones) {
+    ctx.fillStyle = z.color;
+    ctx.fillRect(z.x * T, z.y * T, z.w * T, z.h * T);
+  }
+
+  // Draw walls
+  ctx.fillStyle = '#0d1117';
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (walls[r * COLS + c]) {
+        ctx.fillRect(c * T, r * T, T, T);
+      }
+    }
+  }
+
+  // Front door highlight
+  ctx.fillStyle = '#92400e';
+  ctx.fillRect(0, 10 * T, 4, 2 * T);
+
+  // Room labels
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.font = '11px Courier New';
+  ctx.fillText('LIVING ROOM', 25, 60);
+  ctx.fillText('KITCHEN', 400, 40);
+  ctx.fillText('HALLWAY', 340, 260);
+  ctx.fillText('YOUR BEDROOM', 20, 380);
+  ctx.fillText('GUEST ROOM', 395, 450);
+  ctx.fillText('EXIT', 2, 218);
+}
+
+function drawVisionCone(npc) {
+  ctx.save();
+  ctx.translate(npc.x, npc.y);
+  ctx.rotate(npc.angle);
+  const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, npc.visionRange);
+  grad.addColorStop(0, 'rgba(255,220,50,0.18)');
+  grad.addColorStop(1, 'rgba(255,220,50,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.arc(0, 0, npc.visionRange, -npc.visionAngle / 2, npc.visionAngle / 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawHearingRing(npc) {
+  if (noiseLevel < 5) return;
+  const r = npc.hearingRange * (noiseLevel / 100);
+  ctx.beginPath();
+  ctx.arc(npc.x, npc.y, r, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(239,68,68,0.12)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+function drawNPC(npc) {
+  drawHearingRing(npc);
+  drawVisionCone(npc);
+
+  // Alert indicator
+  const alert = (npc.alertTimer || 0);
+  if (alert > 0) {
+    ctx.save();
+    ctx.font = alert > 30 ? '16px serif' : '12px serif';
+    ctx.fillText(alert > 30 ? '❗❗' : '❓', npc.x - 10, npc.y - 16);
+    ctx.restore();
+  }
+
+  ctx.beginPath();
+  ctx.arc(npc.x, npc.y, npc.r, 0, Math.PI * 2);
+  ctx.fillStyle = npc.color;
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  // Direction dot
+  ctx.beginPath();
+  ctx.arc(npc.x + Math.cos(npc.angle) * (npc.r + 3), npc.y + Math.sin(npc.angle) * (npc.r + 3), 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.7)';
+  ctx.font = '9px Courier New';
+  ctx.fillText(npc.label, npc.x - 12, npc.y + npc.r + 11);
+}
+
+function drawPlayer() {
+  // Noise ripple
+  if (noiseLevel > 5) {
+    const r = 20 + noiseLevel * 0.5;
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, r, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(239,68,68,${noiseLevel / 300})`;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fillStyle = '#22d3ee';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+
+  if (hasSwitch) {
+    ctx.font = '12px serif';
+    ctx.fillText('🟥', player.x - 7, player.y - 11);
+  }
+}
+
+function drawSwitch() {
+  if (switchItem.collected) return;
+  // Glow
+  const glow = ctx.createRadialGradient(switchItem.x, switchItem.y, 2, switchItem.x, switchItem.y, 20);
+  glow.addColorStop(0, 'rgba(239,68,68,0.3)');
+  glow.addColorStop(1, 'rgba(239,68,68,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(switchItem.x, switchItem.y, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.font = '18px serif';
+  ctx.fillText('🟥', switchItem.x - 9, switchItem.y + 7);
+}
+
+function drawUI() {
+  document.getElementById('noise-fill').style.width = noiseLevel + '%';
+  const run = Object.values(keys).some(Boolean) && (keys['Shift']);
+  if (run) {
+    document.getElementById('status').style.color = '#ef4444';
+  } else {
+    document.getElementById('status').style.color = '#facc15';
+  }
+}
+
+// ─── Game Loop ────────────────────────────────────────────────────────────────
+let lastFrame = null;
+function loop(ts) {
+  if (gameState !== 'playing') return;
+  requestAnimationFrame(loop);
+  frameCount++;
+
+  const inp = getInput();
+  updateNoise(inp);
+  movePlayer(inp);
+  for (const npc of npcs) updateNPC(npc);
+  checkInteractions();
+  checkCaught();
+
+  // Draw
+  ctx.clearRect(0, 0, W, H);
+  drawMap();
+  drawSwitch();
+  for (const npc of npcs) drawNPC(npc);
+  drawPlayer();
+  drawUI();
+
+  // Noise pulse ring on player
+  if (noiseLevel > 2 && frameCount % 40 < 20) {
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r + 3 + noiseLevel * 0.15, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(239,68,68,${noiseLevel / 200})`;
+    ctx.lineWidth = 1;
+    ctx.stroke();
+  }
+}
+</script>
+</body>
+</html>
