@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Cinderella: Find the Glass Slipper!</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a0a2e;
+      font-family: 'Georgia', serif;
+      color: #f0e6ff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    #stars {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .star {
+      position: absolute;
+      background: #fff;
+      border-radius: 50%;
+      animation: twinkle 2s infinite alternate;
+    }
+
+    @keyframes twinkle {
+      from { opacity: 0.2; }
+      to   { opacity: 1; }
+    }
+
+    #game {
+      position: relative;
+      z-index: 1;
+      width: 700px;
+      max-width: 98vw;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2rem;
+      color: #e8c8ff;
+      text-shadow: 0 0 20px #b06aff;
+      margin-bottom: 6px;
+    }
+
+    #subtitle {
+      text-align: center;
+      font-size: 0.95rem;
+      color: #c9a0f0;
+      margin-bottom: 16px;
+    }
+
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(80,20,120,0.5);
+      border: 1px solid #9a5fd8;
+      border-radius: 10px;
+      padding: 8px 16px;
+      margin-bottom: 12px;
+    }
+
+    #timer-bar-wrap {
+      width: 220px;
+      height: 14px;
+      background: #3a1a5e;
+      border-radius: 7px;
+      overflow: hidden;
+      border: 1px solid #9a5fd8;
+    }
+
+    #timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #e060ff, #80c0ff);
+      transition: width 0.5s linear, background 0.5s;
+      border-radius: 7px;
+    }
+
+    #clues-found { font-size: 0.9rem; color: #d0aaff; }
+    #timer-label { font-size: 0.85rem; color: #c9a0f0; }
+
+    #scene-box {
+      background: rgba(30, 5, 60, 0.85);
+      border: 2px solid #9a5fd8;
+      border-radius: 14px;
+      padding: 20px 24px;
+      min-height: 220px;
+      position: relative;
+      box-shadow: 0 0 30px #6010b040;
+    }
+
+    #scene-art {
+      font-size: 4rem;
+      text-align: center;
+      margin-bottom: 10px;
+      filter: drop-shadow(0 0 10px #b06aff);
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    #scene-name {
+      text-align: center;
+      font-size: 1.3rem;
+      color: #e0c0ff;
+      font-weight: bold;
+      margin-bottom: 6px;
+      text-shadow: 0 0 10px #9050d0;
+    }
+
+    #scene-desc {
+      font-size: 0.95rem;
+      color: #d0b8f0;
+      line-height: 1.6;
+      margin-bottom: 14px;
+      min-height: 60px;
+    }
+
+    #message {
+      font-size: 0.95rem;
+      color: #ffe08a;
+      background: rgba(120,80,0,0.25);
+      border: 1px solid #c8a000;
+      border-radius: 8px;
+      padding: 8px 12px;
+      margin-bottom: 12px;
+      min-height: 36px;
+      display: none;
+    }
+
+    #message.show { display: block; }
+
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    button {
+      background: linear-gradient(135deg, #5a1a90, #2a0a60);
+      border: 1px solid #9a5fd8;
+      color: #e8d0ff;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.92rem;
+      font-family: 'Georgia', serif;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: left;
+    }
+
+    button:hover:not(:disabled) {
+      background: linear-gradient(135deg, #7a2ab0, #4a1a80);
+      border-color: #c080ff;
+      color: #fff;
+      box-shadow: 0 0 10px #9050d060;
+      transform: translateY(-1px);
+    }
+
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    button.travel { background: linear-gradient(135deg, #0a3a6a, #051a40); border-color: #4090d8; }
+    button.travel:hover:not(:disabled) { background: linear-gradient(135deg, #1a5a9a, #0a3060); border-color: #80c0ff; box-shadow: 0 0 10px #4090d860; }
+    button.search { background: linear-gradient(135deg, #3a6a0a, #1a4005); border-color: #80d840; }
+    button.search:hover:not(:disabled) { background: linear-gradient(135deg, #5a9a1a, #2a6010); border-color: #b0ff60; box-shadow: 0 0 10px #80d84060; }
+
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 10;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+
+    #overlay.show { display: flex; }
+
+    #overlay-box {
+      background: linear-gradient(160deg, #2a0a5e, #0a0020);
+      border: 2px solid #c080ff;
+      border-radius: 18px;
+      padding: 40px 48px;
+      text-align: center;
+      max-width: 440px;
+      box-shadow: 0 0 60px #8030d080;
+    }
+
+    #overlay-emoji { font-size: 5rem; margin-bottom: 14px; }
+    #overlay-title { font-size: 1.8rem; color: #e8c8ff; margin-bottom: 10px; text-shadow: 0 0 20px #b06aff; }
+    #overlay-msg { color: #c9a0f0; line-height: 1.6; margin-bottom: 22px; }
+
+    #restart-btn {
+      background: linear-gradient(135deg, #8030d0, #4010a0);
+      border: 1px solid #c080ff;
+      color: #fff;
+      border-radius: 12px;
+      padding: 12px 32px;
+      font-size: 1.1rem;
+      font-family: 'Georgia', serif;
+      cursor: pointer;
+      box-shadow: 0 0 20px #8030d080;
+      transition: all 0.2s;
+    }
+
+    #restart-btn:hover { background: linear-gradient(135deg, #a050f0, #6020c0); transform: scale(1.05); }
+
+    #clue-log {
+      margin-top: 12px;
+      background: rgba(20,0,50,0.6);
+      border: 1px solid #5a2a90;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-size: 0.82rem;
+      color: #b090d8;
+      min-height: 44px;
+    }
+
+    #clue-log span { display: block; }
+    #clue-log .clue-item::before { content: "✨ "; }
+  </style>
+</head>
+<body>
+
+<div id="stars"></div>
+
+<div id="game">
+  <h1>👠 Cinderella's Glass Slipper</h1>
+  <p id="subtitle">Find your slipper before the royal ball begins!</p>
+
+  <div id="hud">
+    <div>
+      <div id="timer-label">Time until midnight: <strong id="timer-text">3:00</strong></div>
+      <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+    </div>
+    <div id="clues-found">Clues: <strong id="clue-count">0</strong> / 3</div>
+  </div>
+
+  <div id="scene-box">
+    <div id="scene-art"></div>
+    <div id="scene-name"></div>
+    <div id="scene-desc"></div>
+    <div id="message"></div>
+    <div class="btn-grid" id="btn-grid"></div>
+  </div>
+
+  <div id="clue-log"><em style="color:#7a5aaa">Clues you've discovered will appear here…</em></div>
+</div>
+
+<div id="overlay">
+  <div id="overlay-box">
+    <div id="overlay-emoji"></div>
+    <div id="overlay-title"></div>
+    <div id="overlay-msg"></div>
+    <button id="restart-btn" onclick="initGame()">✨ Play Again</button>
+  </div>
+</div>
+
+<script>
+const LOCATIONS = {
+  garden: {
+    id: 'garden',
+    name: 'Castle Garden',
+    art: '🌹',
+    desc: 'Moonlit roses line the stone path. You can hear the orchestra tuning up inside the castle. Your carriage stands nearby — but something is missing from the evening…',
+    searches: [
+      { text: 'Search the rose bushes', result: 'You find a torn piece of blue silk — from your gown! But no slipper.', clue: 'Your slipper came off near the roses — the petals are crushed.', clueKey: 'garden_roses' },
+      { text: 'Check near the fountain', result: 'The water sparkles. A goldfish winks at you. No slipper here.', clue: null },
+    ],
+    travels: ['kitchen', 'stables', 'ballroom_entrance'],
+  },
+  kitchen: {
+    id: 'kitchen',
+    name: 'Castle Kitchen',
+    art: '🍞',
+    desc: 'The kitchen is warm and bustling. Cooks dash about with trays of pastries. Steam fills the air with the scent of honey and butter.',
+    searches: [
+      { text: 'Look under the big table', result: 'Just a sleeping cat and a wheel of cheese. No slipper.', clue: null },
+      { text: 'Ask the head cook', result: '"A glass slipper? Oh dear! One of the footmen mentioned seeing something sparkle by the stables!"', clue: 'A footman saw something sparkling near the stables.', clueKey: 'kitchen_cook' },
+    ],
+    travels: ['garden', 'stables', 'pantry'],
+  },
+  stables: {
+    id: 'stables',
+    name: 'Royal Stables',
+    art: '🐴',
+    desc: 'Horses stamp and snort in their stalls. Hay covers the cobblestone floor. A lantern sways overhead casting long shadows.',
+    searches: [
+      { text: 'Search the hay bales', result: 'You dig through the hay — and find a lucky horseshoe! But no slipper.', clue: null },
+      { text: 'Ask the stable boy', result: '"I saw it! A glass shoe — one of the mice was rolling it toward the pantry!"', clue: 'The mice rolled your slipper toward the pantry!', clueKey: 'stables_boy' },
+    ],
+    travels: ['kitchen', 'garden', 'pantry'],
+  },
+  pantry: {
+    id: 'pantry',
+    name: 'Castle Pantry',
+    art: '🧀',
+    desc: 'Shelves of jams, cheeses, and preserves tower above you. It\'s quiet here — except for the faint sound of tiny squeaking.',
+    searches: [
+      { text: 'Follow the squeaking sounds', result: 'Three mice scurry away! One drops something shiny… a glass button. So close!', clue: null },
+      { text: 'Move the flour sacks', result: 'Behind the flour sacks, hidden in a corner — YOUR GLASS SLIPPER! The mice were using it as a slide!', clue: null, win: true },
+    ],
+    travels: ['kitchen', 'stables', 'ballroom_entrance'],
+  },
+  ballroom_entrance: {
+    id: 'ballroom_entrance',
+    name: 'Ballroom Entrance',
+    art: '🎶',
+    desc: 'Grand doors loom before you, framed by golden candelabras. Guests drift past in silks and jewels. The ball has nearly begun — you MUST find your slipper!',
+    searches: [
+      { text: 'Check the coat room', result: 'You find seventeen cloaks, two umbrellas, and a confused owl. No slipper.', clue: null },
+      { text: 'Ask the royal herald', result: '"Glass slipper? I heard some mice caused a ruckus in the pantry earlier…"', clue: 'The royal herald heard mice near the pantry.', clueKey: 'herald' },
+    ],
+    travels: ['garden', 'kitchen', 'pantry'],
+  },
+};
+
+let state = {};
+let timerInterval = null;
+const TOTAL_TIME = 180;
+
+function initGame() {
+  clearInterval(timerInterval);
+  state = { location: 'garden', timeLeft: TOTAL_TIME, clues: [], searched: {}, won: false, lost: false };
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('clue-log').innerHTML = '<em style="color:#7a5aaa">Clues you\'ve discovered will appear here…</em>';
+  updateHUD();
+  renderScene();
+  timerInterval = setInterval(tick, 1000);
+}
+
+function tick() {
+  if (state.won || state.lost) return;
+  state.timeLeft--;
+  updateHUD();
+  if (state.timeLeft <= 0) { state.lost = true; clearInterval(timerInterval); showOverlay(false); }
+}
+
+function updateHUD() {
+  const m = Math.floor(state.timeLeft / 60);
+  const s = String(state.timeLeft % 60).padStart(2, '0');
+  document.getElementById('timer-text').textContent = `${m}:${s}`;
+  const pct = (state.timeLeft / TOTAL_TIME) * 100;
+  const bar = document.getElementById('timer-bar');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 50 ? 'linear-gradient(90deg,#e060ff,#80c0ff)' : pct > 25 ? 'linear-gradient(90deg,#ffaa00,#ff6060)' : 'linear-gradient(90deg,#ff3030,#ff7000)';
+  document.getElementById('clue-count').textContent = state.clues.length;
+}
+
+function renderScene(msg) {
+  const loc = LOCATIONS[state.location];
+  document.getElementById('scene-art').textContent = loc.art;
+  document.getElementById('scene-name').textContent = loc.name;
+  document.getElementById('scene-desc').textContent = loc.desc;
+  const msgEl = document.getElementById('message');
+  if (msg) { msgEl.textContent = msg; msgEl.classList.add('show'); }
+  else { msgEl.classList.remove('show'); msgEl.textContent = ''; }
+  const grid = document.getElementById('btn-grid');
+  grid.innerHTML = '';
+  loc.searches.forEach((s, i) => {
+    const done = state.searched[`${loc.id}_s${i}`];
+    const btn = document.createElement('button');
+    btn.className = 'search';
+    btn.textContent = (done ? '✓ ' : '🔍 ') + s.text;
+    btn.disabled = done;
+    btn.onclick = () => doSearch(loc, s, i);
+    grid.appendChild(btn);
+  });
+  loc.travels.forEach(dest => {
+    const btn = document.createElement('button');
+    btn.className = 'travel';
+    btn.textContent = '→ ' + LOCATIONS[dest].name;
+    btn.onclick = () => travel(dest);
+    grid.appendChild(btn);
+  });
+}
+
+function doSearch(loc, search, idx) {
+  state.searched[`${loc.id}_s${idx}`] = true;
+  if (search.win) {
+    state.won = true;
+    clearInterval(timerInterval);
+    renderScene(search.result);
+    setTimeout(() => showOverlay(true), 800);
+    return;
+  }
+  if (search.clue && search.clueKey && !state.clues.includes(search.clueKey)) {
+    state.clues.push(search.clueKey);
+    addClueToLog(search.clue);
+    updateHUD();
+  }
+  renderScene(search.result);
+}
+
+function travel(dest) { state.location = dest; renderScene(); }
+
+function addClueToLog(clue) {
+  const log = document.getElementById('clue-log');
+  if (log.querySelector('em')) log.innerHTML = '';
+  const span = document.createElement('span');
+  span.className = 'clue-item';
+  span.textContent = clue;
+  log.appendChild(span);
+}
+
+function showOverlay(won) {
+  document.getElementById('overlay-emoji').textContent = won ? '👠' : '🕛';
+  document.getElementById('overlay-title').textContent = won ? 'You found it!' : 'Midnight struck!';
+  document.getElementById('overlay-msg').innerHTML = won
+    ? `You rescued your glass slipper from the mischievous mice just in time!<br><br>You slip it on, dash to the ballroom, and the prince's eyes light up as you enter. ✨<br><br><strong>And they lived happily ever after.</strong>`
+    : `The clock struck twelve before you could find your slipper. 💔<br><br>Your carriage turned back into a pumpkin, and the prince was left holding only a mystery.<br><br><strong>Try again — the slipper is out there!</strong>`;
+  document.getElementById('overlay').classList.add('show');
+}
+
+function makeStars() {
+  const container = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    const size = Math.random() * 2.5 + 0.5;
+    s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*100}%;left:${Math.random()*100}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2}s;`;
+    container.appendChild(s);
+  }
+}
+
+makeStars();
+initGame();
+</script>
+</body>
+</html>
