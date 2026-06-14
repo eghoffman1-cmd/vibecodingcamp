@@ -36,7 +36,7 @@
   <canvas id="c" width="640" height="500"></canvas>
   <div id="overlay">
     <h1>🎮 Switch Heist</h1>
-    <p>Everyone's home. You need your Nintendo Switch from your bedroom.<br><br>
+    <p>You are <strong>Seymour Butts</strong>. Everyone's home. You need your Nintendo Switch from your bedroom.<br><br>
     <strong>Walk slowly</strong> — running makes noise.<br>
     <strong>Stay out of sight</strong> — avoid the glow of their vision.<br>
     <strong>Don't talk</strong> — silence is your weapon.<br><br>
@@ -318,11 +318,11 @@ function gameOver(type, who) {
   const ov = document.getElementById('overlay');
   ov.style.display = 'flex';
   ov.innerHTML = type === 'win'
-    ? `<h1>🎮 You escaped!</h1>
-       <p>You snagged the Nintendo Switch and slipped out the front door.<br>Time to game in peace. You absolute legend.</p>
+    ? `<h1>🎮 Seymour Butts escapes!</h1>
+       <p>Seymour Butts snagged the Nintendo Switch and slipped out the front door.<br>Time to game in peace. An absolute legend of a Butt.</p>
        <button onclick="startGame()">Play Again</button>`
-    : `<h1>😱 Busted by ${who}!</h1>
-       <p>${who} caught you sneaking around${who === 'Dog' ? ' — the dog started barking like crazy' : ''}.<br>Switch privileges: <strong>REVOKED</strong>. Try again?</p>
+    : `<h1>😱 Seymour Butts got busted by ${who}!</h1>
+       <p>${who} caught Seymour Butts sneaking around${who === 'Dog' ? ' — the dog would not stop sniffing those Butts' : ''}.<br>Switch privileges: <strong>REVOKED</strong>. Try again?</p>
        <button onclick="startGame()">Try Again</button>`;
 }
 
@@ -461,6 +461,11 @@ function drawPlayer() {
     ctx.font = '12px serif';
     ctx.fillText('🟥', player.x - 7, player.y - 11);
   }
+
+  // Name tag
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  ctx.font = '9px Courier New';
+  ctx.fillText('Seymour Butts', player.x - 36, player.y + player.r + 11);
 }
 
 function drawSwitch() {
