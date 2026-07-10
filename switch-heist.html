@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Switch Heist: Escape Seymour Butts</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0710; overflow:hidden; font-family:'Segoe UI',sans-serif; color:#eee;
+       display:flex; align-items:center; justify-content:center; min-height:100vh; }
+#gameWrap { position:relative; width:960px; height:640px; box-shadow:0 0 60px rgba(240,80,220,0.15);
+            border-radius:6px; overflow:hidden; }
+canvas { display:block; background:#150f1c; }
+.hud-box { position:absolute; background:rgba(10,8,16,0.82); border-radius:8px; backdrop-filter:blur(4px);
+           z-index:10; }
+#hearts { top:12px; left:12px; padding:8px 14px; font-size:18px; letter-spacing:4px; }
+#switchCount { top:12px; left:150px; padding:8px 14px; font-size:14px; font-weight:600; }
+#stateBanner { top:12px; left:50%; transform:translateX(-50%); padding:7px 22px; font-size:13px;
+               font-weight:700; letter-spacing:1px; text-transform:uppercase; z-index:10;
+               position:absolute; background:rgba(10,8,16,0.85); border-radius:20px; transition:color .3s; }
+#bossBar { top:52px; left:50%; transform:translateX(-50%); width:340px; padding:8px 12px; display:none; }
+#bossBar .lbl { font-size:11px; color:#e9b3ff; margin-bottom:4px; text-align:center; letter-spacing:1px; }
+#bossBarOuter { background:#2a1f38; border-radius:6px; height:12px; overflow:hidden; }
+#bossBarFill { background:linear-gradient(90deg,#f0abfc,#a855f7); height:100%; width:100%; transition:width .25s; }
+#ctrlHint { bottom:12px; left:12px; padding:8px 13px; font-size:11px; line-height:1.7; }
+#toasts { bottom:12px; right:12px; padding:8px 13px; font-size:12px; line-height:1.9; max-width:300px;
+          text-align:right; background:transparent; }
+.toast-line { opacity:0.95; text-shadow:0 1px 4px rgba(0,0,0,0.9); }
+.overlay { position:absolute; inset:0; background:rgba(6,4,10,0.95); z-index:100; display:flex;
+           flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; }
+.overlay h1 { font-size:2.3em; color:#f0abfc; text-shadow:0 0 30px rgba(240,171,252,0.5); margin-bottom:10px; letter-spacing:1px; }
+.overlay h2 { font-size:1.6em; color:#f0abfc; margin-bottom:14px; }
+.overlay p { color:#b8afc4; max-width:560px; line-height:1.7; margin-bottom:10px; font-size:0.95em; }
+.overlay .controls { color:#8a8194; font-size:0.85em; margin:16px 0 26px; line-height:1.8; }
+.btn { background:#f0abfc; color:#1a0f22; border:none; padding:13px 40px; font-size:.95em; font-family:inherit;
+       border-radius:7px; cursor:pointer; font-weight:700; letter-spacing:.8px; text-transform:uppercase; }
+.btn:hover { background:#f5c4fd; }
+#screenFlash { position:absolute; inset:0; background:#ff2d55; opacity:0; pointer-events:none; z-index:50; }
+</style>
+</head>
+<body>
+<div id="gameWrap">
+<canvas id="c" width="960" height="640"></canvas>
+<div id="screenFlash"></div>
+
+<div id="hearts" class="hud-box">❤❤❤</div>
+<div id="switchCount" class="hud-box">🎮 0 / 5</div>
+<div id="stateBanner">Sneaking In...</div>
+<div id="bossBar" class="hud-box">
+  <div class="lbl">SEYMOUR BUTTS</div>
+  <div id="bossBarOuter"><div id="bossBarFill"></div></div>
+</div>
+<div id="ctrlHint" class="hud-box">WASD / Arrows — Move<br>Hold Shift — Sneak (slower, harder to spot)<br>Space — Attack (during boss fight)<br>E — Interact · R — Restart</div>
+<div id="toasts" class="hud-box"></div>
+
+<div id="menu" class="overlay">
+  <h1>🎮 SWITCH HEIST</h1>
+  <div style="color:#8a8194;font-size:.85em;margin-bottom:20px;letter-spacing:1px;">ESCAPE THE TOWER OF SEYMOUR BUTTS</div>
+  <p>You wake up locked inside the tower of the evil sorceress Seymour Butts. While you were out cold, Seymour Butts and the butler army — the <b>Seymour Butts Jrs</b> — raided your room and stole every single one of your Nintendo Switches.</p>
+  <p>Sneak past the Jrs, recover all <b>5 stolen Switches</b>, force your way into the throne room to beat Seymour Butts, then smash the secret button and sprint for the door before every Jr in the tower comes for you.</p>
+  <div class="controls">WASD / Arrow Keys to move &nbsp;·&nbsp; Hold Shift to sneak &nbsp;·&nbsp; Stay out of the guards' yellow vision cones</div>
+  <button class="btn" onclick="startGame()">Begin The Heist</button>
+</div>
+
+<div id="winScreen" class="overlay" style="display:none">
+  <h2>🎉 YOU ESCAPED!</h2>
+  <p id="winText"></p>
+  <button class="btn" onclick="startGame()">Play Again</button>
+</div>
+
+<div id="loseScreen" class="overlay" style="display:none">
+  <h2 id="loseTitle">CAUGHT!</h2>
+  <p id="loseText"></p>
+  <button class="btn" onclick="startGame()">Try Again</button>
+</div>
+</div>
+
+<script>
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const CELL = 32, COLS = 30, ROWS = 20;
+const TOTAL_SWITCHES = 5;
+
+// ---------- helpers ----------
+function roundRect(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r);
+  g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r);
+  g.arcTo(x,y,x+w,y,r);
+  g.closePath();
+}
+function normAngle(a){ return ((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI; }
+function dist(x1,y1,x2,y2){ return Math.hypot(x2-x1,y2-y1); }
+
+// ---------- map ----------
+let grid, gateTiles, gateSet;
+function carve(g,x,y,w,h){
+  for(let r=y;r<y+h;r++) for(let c=x;c<x+w;c++){
+    if(r>=0&&r<ROWS&&c>=0&&c<COLS) g[r][c]=1;
+  }
+}
+function buildMap(){
+  grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  carve(grid,2,14,6,5);    // start room
+  carve(grid,2,17,27,2);   // main corridor
+  carve(grid,1,1,6,5);     // room A
+  carve(grid,3,5,2,13);    // corridor to A
+  carve(grid,9,1,6,5);     // room B
+  carve(grid,11,5,2,13);   // corridor to B
+  carve(grid,9,9,5,4);     // room C (off corridor B)
+  carve(grid,17,1,6,5);    // room D
+  carve(grid,19,5,2,13);   // corridor to D
+  carve(grid,17,9,5,4);    // room E (off corridor D)
+  carve(grid,24,1,5,7);    // throne room
+  carve(grid,25,7,2,10);   // corridor to throne
+  gateTiles = [{row:9,col:25},{row:9,col:26}];
+  gateTiles.forEach(t=> grid[t.row][t.col]=0); // magic barrier, locked
+  gateSet = new Set(gateTiles.map(t=>t.row+','+t.col));
+}
+function solid(col,row){
+  if(col<0||col>=COLS||row<0||row>=ROWS) return true;
+  return grid[row][col]===0;
+}
+function solidPixel(x,y){ return solid(Math.floor(x/CELL), Math.floor(y/CELL)); }
+function canOccupy(x,y,half){
+  return !solidPixel(x-half,y-half) && !solidPixel(x+half,y-half) &&
+         !solidPixel(x-half,y+half) && !solidPixel(x+half,y+half);
+}
+function tryMove(ent,dx,dy,half){
+  if(dx!==0){ const nx=ent.x+dx; if(canOccupy(nx,ent.y,half)) ent.x=nx; }
+  if(dy!==0){ const ny=ent.y+dy; if(canOccupy(ent.x,ny,half)) ent.y=ny; }
+}
+function hasLineOfSight(x1,y1,x2,y2){
+  const d = dist(x1,y1,x2,y2);
+  const steps = Math.ceil(d/8);
+  for(let i=1;i<steps;i++){
+    const t=i/steps;
+    if(solidPixel(x1+(x2-x1)*t, y1+(y2-y1)*t)) return false;
+  }
+  return true;
+}
+
+// ---------- entities ----------
+const DOOR_POS = {x:112, y:592};
+const SPAWN_POS = {x:176, y:496};
+const THRONE_BBOX = {x1:768,y1:32,x2:928,y2:256};
+const BOSS_HOME = {x:848,y:110};
+const BUTTON_POS = {x:848,y:176};
+
+function makeSwitches(){
+  return [
+    {id:'A', x:112, y:112, collected:false},
+    {id:'B', x:368, y:112, collected:false},
+    {id:'C', x:368, y:336, collected:false},
+    {id:'D', x:624, y:112, collected:false},
+    {id:'E', x:624, y:336, collected:false},
+  ];
+}
+function makeGuards(){
+  return [
+    {name:'Corridor Jr', x:150, y:576, wp:[{x:150,y:576},{x:850,y:576}], wpI:0,
+     patrolSpeed:55, chaseSpeed:112, visionRange:170, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Room A Jr', x:80, y:80, wp:[{x:80,y:80},{x:180,y:80},{x:180,y:150},{x:80,y:150}], wpI:0,
+     patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Room B Jr', x:320, y:80, wp:[{x:320,y:80},{x:440,y:80},{x:440,y:150},{x:320,y:150}], wpI:0,
+     patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Room C Jr', x:310, y:300, wp:[{x:310,y:300},{x:420,y:300},{x:420,y:390},{x:310,y:390}], wpI:0,
+     patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Room D Jr', x:576, y:80, wp:[{x:576,y:80},{x:696,y:80},{x:696,y:150},{x:576,y:150}], wpI:0,
+     patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Room E Jr', x:566, y:300, wp:[{x:566,y:300},{x:676,y:300},{x:676,y:390},{x:566,y:390}], wpI:0,
+     patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Captain Jr', x:848, y:280, wp:[{x:848,y:280},{x:848,y:480}], wpI:0,
+     patrolSpeed:60, chaseSpeed:128, visionRange:200, visionHalf:0.6, dir:0, state:'patrol', alertT:0},
+  ];
+}
+
+let player, switches, guards, boss, toasts, gameState, hearts, switchesCollected,
+    bossDefeated, secretButtonActive, escapeTimer, invulnT, escapeBoost, lastTime, screenFlashT;
+
+function resetState(){
+  buildMap();
+  player = {x:SPAWN_POS.x, y:SPAWN_POS.y, half:12, speed:150, sneakSpeed:80, sneaking:false};
+  switches = makeSwitches();
+  guards = makeGuards();
+  boss = null;
+  toasts = [];
+  hearts = 3;
+  switchesCollected = 0;
+  bossDefeated = false;
+  secretButtonActive = false;
+  escapeTimer = 0;
+  escapeBoost = false;
+  invulnT = 0;
+  screenFlashT = 0;
+  gameState = 'play';
+  updateHeartsUI();
+  updateSwitchUI();
+  document.getElementById('bossBar').style.display = 'none';
+  setBanner('Sneaking In...', '#f0abfc');
+}
+
+function updateHeartsUI(){
+  document.getElementById('hearts').textContent = '❤'.repeat(Math.max(hearts,0)) + '♡'.repeat(Math.max(3-hearts,0));
+}
+function updateSwitchUI(){
+  document.getElementById('switchCount').textContent = '🎮 ' + switchesCollected + ' / ' + TOTAL_SWITCHES;
+}
+function setBanner(text,color){
+  const b = document.getElementById('stateBanner');
+  b.textContent = text;
+  b.style.color = color;
+}
+function addToast(text){
+  toasts.unshift({text, t:3.2});
+  if(toasts.length>5) toasts.pop();
+  renderToasts();
+}
+function renderToasts(){
+  document.getElementById('toasts').innerHTML = toasts.map(t=>'<div class="toast-line">'+t.text+'</div>').join('');
+}
+setInterval(()=>{
+  if(!toasts.length) return;
+  let changed=false;
+  for(const t of toasts){ t.t-=0.3; }
+  const before = toasts.length;
+  toasts = toasts.filter(t=>t.t>0);
+  if(toasts.length!==before) renderToasts();
+},300);
+
+// ---------- input ----------
+const keys = new Set();
+window.addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' ','w','a','s','d','shift'].includes(k)) e.preventDefault();
+  keys.add(k);
+  if(k==='r') { startGame(); return; }
+  if(gameState==='boss' && k===' '){ onBossAttackKey(); }
+  if(gameState==='play' && k==='e'){ tryPressButton(); }
+});
+window.addEventListener('keyup', e=> keys.delete(e.key.toLowerCase()));
+
+function tryPressButton(){
+  if(!secretButtonActive) return;
+  if(dist(player.x,player.y,BUTTON_POS.x,BUTTON_POS.y) < 34){
+    startEscape();
+  }
+}
+
+// ---------- guard AI ----------
+function updateGuard(g,dt){
+  if(gameState==='boss') return;
+  if(gameState==='escape'){
+    g.state='chase';
+  } else {
+    const canSee = guardCanSee(g);
+    if(canSee){ g.state='chase'; g.alertT=2.5; }
+    else if(g.state==='chase'){ g.alertT-=dt; if(g.alertT<=0) g.state='patrol'; }
+  }
+
+  if(g.state==='chase'){
+    const dx=player.x-g.x, dy=player.y-g.y, d=Math.hypot(dx,dy)||1;
+    g.dir = Math.atan2(dy,dx);
+    let sp = g.chaseSpeed * (escapeBoost?1.3:1);
+    tryMove(g,(dx/d)*sp*dt,(dy/d)*sp*dt,11);
+    if(d < 22) onPlayerCaught();
+  } else {
+    const wp = g.wp[g.wpI];
+    const dx=wp.x-g.x, dy=wp.y-g.y, d=Math.hypot(dx,dy);
+    if(d<4){ g.wpI=(g.wpI+1)%g.wp.length; }
+    else{
+      g.dir = Math.atan2(dy,dx);
+      tryMove(g,(dx/d)*g.patrolSpeed*dt,(dy/d)*g.patrolSpeed*dt,11);
+    }
+  }
+}
+function guardCanSee(g){
+  const range = g.visionRange * (player.sneaking?0.5:1);
+  const d = dist(g.x,g.y,player.x,player.y);
+  if(d>range) return false;
+  const angleTo = Math.atan2(player.y-g.y, player.x-g.x);
+  if(Math.abs(normAngle(angleTo-g.dir)) > g.visionHalf) return false;
+  return hasLineOfSight(g.x,g.y,player.x,player.y);
+}
+function onPlayerCaught(){
+  if(invulnT>0) return;
+  hearts--;
+  invulnT = 1.4;
+  screenFlashT = 0.3;
+  updateHeartsUI();
+  addToast(gameState==='boss' ? 'Hit! -1 heart' : 'Caught! -1 heart');
+  if(hearts<=0){
+    lose(gameState==='escape' ? 'escape' : (gameState==='boss' ? 'boss' : 'caught'));
+  }
+}
+
+function unlockGate(){
+  gateTiles.forEach(t=> grid[t.row][t.col]=1);
+  addToast('The magic barrier dissolves! The throne room is open!');
+}
+
+// ---------- boss ----------
+function startBoss(){
+  gameState='boss';
+  boss = {x:BOSS_HOME.x, y:BOSS_HOME.y, hp:5, maxHp:5, vulnerable:false, vulnT:0,
+          vulnCycle:2.6, attackTimer:1.6, telegraphs:[], t:0};
+  document.getElementById('bossBar').style.display='block';
+  updateBossBar();
+  setBanner('BOSS FIGHT!', '#ff6b81');
+  addToast('Seymour Butts appears! Dodge the attacks and hit SPACE when they glow gold!');
+}
+function updateBossBar(){
+  document.getElementById('bossBarFill').style.width = Math.max(boss.hp,0)/boss.maxHp*100 + '%';
+}
+function onBossAttackKey(){
+  if(!boss) return;
+  if(boss.vulnerable){
+    boss.hp--; boss.vulnerable=false; boss.vulnT=0;
+    updateBossBar();
+    addToast('Direct hit! (' + boss.hp + ' HP left)');
+    if(boss.hp<=0) defeatBoss();
+  }
+}
+function defeatBoss(){
+  bossDefeated = true;
+  secretButtonActive = true;
+  boss = null;
+  gameState='play';
+  document.getElementById('bossBar').style.display='none';
+  setBanner('Find the Secret Button!', '#f0abfc');
+  addToast('Seymour Butts flees, dropping the key! The secret button is revealed!');
+}
+function updateBoss(dt){
+  boss.t += dt;
+  boss.x = BOSS_HOME.x + Math.sin(boss.t*1.1)*55;
+  boss.y = BOSS_HOME.y + Math.sin(boss.t*0.7)*20;
+
+  boss.vulnCycle -= dt;
+  if(boss.vulnCycle<=0 && !boss.vulnerable){
+    boss.vulnerable = true;
+    boss.vulnT = 1.2;
+  }
+  if(boss.vulnerable){
+    boss.vulnT -= dt;
+    if(boss.vulnT<=0){ boss.vulnerable=false; boss.vulnCycle = 3.2 + Math.random()*0.8; }
+  }
+
+  boss.attackTimer -= dt;
+  if(boss.attackTimer<=0){
+    boss.telegraphs.push({x:player.x, y:player.y, t:0, life:0.9, maxR:55});
+    boss.attackTimer = 1.5 + Math.random()*0.7;
+  }
+  for(let i=boss.telegraphs.length-1;i>=0;i--){
+    const tg = boss.telegraphs[i];
+    tg.t += dt;
+    if(tg.t>=tg.life){
+      if(dist(player.x,player.y,tg.x,tg.y) < tg.maxR+10) onPlayerCaught();
+      boss.telegraphs.splice(i,1);
+    }
+  }
+  // keep player inside throne room during boss fight
+  player.x = Math.max(THRONE_BBOX.x1+player.half, Math.min(THRONE_BBOX.x2-player.half, player.x));
+  player.y = Math.max(THRONE_BBOX.y1+player.half, Math.min(THRONE_BBOX.y2-player.half, player.y));
+}
+
+// ---------- escape ----------
+function startEscape(){
+  gameState='escape';
+  escapeBoost = true;
+  escapeTimer = 28;
+  guards.forEach(g=> g.state='chase');
+  setBanner('RUN! ESCAPE NOW!', '#ff4d4d');
+  addToast('SECRET BUTTON SMASHED! Every Jr in the tower is coming — RUN FOR THE DOOR!');
+}
+
+function lose(reason){
+  gameState='lose';
+  const title = document.getElementById('loseTitle');
+  const text = document.getElementById('loseText');
+  if(reason==='time'){
+    title.textContent = 'TOO SLOW!';
+    text.textContent = 'The Seymour Butts Jrs swarmed the halls before you reached the door. So close!';
+  } else if(reason==='escape'){
+    title.textContent = 'CAUGHT ESCAPING!';
+    text.textContent = 'The Jrs caught you just before the door. The Switches are lost... for now.';
+  } else if(reason==='boss'){
+    title.textContent = 'DEFEATED!';
+    text.textContent = 'Seymour Butts proved too much for you this time.';
+  } else {
+    title.textContent = 'CAUGHT!';
+    text.textContent = 'A Seymour Butts Jr spotted you and dragged you back to the cell.';
+  }
+  document.getElementById('loseScreen').style.display = 'flex';
+}
+function win(){
+  gameState='win';
+  document.getElementById('winText').textContent =
+    'You recovered all ' + TOTAL_SWITCHES + ' Nintendo Switches, beat Seymour Butts, and escaped the tower with ' +
+    hearts + ' heart' + (hearts===1?'':'s') + ' to spare!';
+  document.getElementById('winScreen').style.display = 'flex';
+}
+
+// ---------- update ----------
+function updatePlayer(dt){
+  let dx=0, dy=0;
+  if(keys.has('w')||keys.has('arrowup')) dy-=1;
+  if(keys.has('s')||keys.has('arrowdown')) dy+=1;
+  if(keys.has('a')||keys.has('arrowleft')) dx-=1;
+  if(keys.has('d')||keys.has('arrowright')) dx+=1;
+  player.sneaking = keys.has('shift');
+  if(dx!==0&&dy!==0){ dx*=0.7071; dy*=0.7071; }
+  const sp = player.sneaking ? player.sneakSpeed : player.speed;
+  tryMove(player, dx*sp*dt, dy*sp*dt, player.half);
+}
+
+function update(dt){
+  if(gameState!=='play' && gameState!=='boss' && gameState!=='escape') return;
+  if(invulnT>0) invulnT -= dt;
+  if(screenFlashT>0){ screenFlashT -= dt; document.getElementById('screenFlash').style.opacity = Math.max(screenFlashT,0)*1.2; }
+  else document.getElementById('screenFlash').style.opacity = 0;
+
+  updatePlayer(dt);
+
+  if(gameState==='boss'){
+    updateBoss(dt);
+  } else {
+    // switches
+    for(const sw of switches){
+      if(!sw.collected && dist(player.x,player.y,sw.x,sw.y) < 24){
+        sw.collected = true;
+        switchesCollected++;
+        updateSwitchUI();
+        addToast('Nintendo Switch recovered! (' + switchesCollected + '/' + TOTAL_SWITCHES + ')');
+        if(switchesCollected===TOTAL_SWITCHES) unlockGate();
+      }
+    }
+    // boss trigger
+    if(gameState==='play' && !bossDefeated && switchesCollected===TOTAL_SWITCHES &&
+       player.x>THRONE_BBOX.x1 && player.x<THRONE_BBOX.x2 && player.y>THRONE_BBOX.y1 && player.y<THRONE_BBOX.y2){
+      startBoss();
+    }
+  }
+
+  guards.forEach(g=> updateGuard(g,dt));
+
+  if(gameState==='escape'){
+    escapeTimer -= dt;
+    document.getElementById('stateBanner').textContent = 'RUN! ' + Math.ceil(Math.max(escapeTimer,0)) + 's';
+    if(escapeTimer<=0){ lose('time'); return; }
+    if(dist(player.x,player.y,DOOR_POS.x,DOOR_POS.y) < 40){ win(); return; }
+  }
+}
+
+// ---------- render ----------
+function drawSwitchIcon(x,y,t){
+  const bob = Math.sin(t*3)*3;
+  ctx.save();
+  ctx.translate(x,y+bob);
+  roundRect(ctx,-14,-9,28,18,4);
+  ctx.fillStyle='#2a2a2e'; ctx.fill();
+  ctx.fillStyle='#e74c3c'; ctx.fillRect(-14,-9,6,18);
+  ctx.fillStyle='#3498db'; ctx.fillRect(8,-9,6,18);
+  ctx.fillStyle='#cfd8dc'; ctx.fillRect(-6,-6,12,12);
+  ctx.restore();
+}
+function drawGuard(g){
+  const chasing = g.state==='chase';
+  // vision cone
+  ctx.save();
+  ctx.translate(g.x,g.y);
+  ctx.rotate(g.dir);
+  ctx.beginPath();
+  ctx.moveTo(0,0);
+  ctx.arc(0,0, g.visionRange, -g.visionHalf, g.visionHalf);
+  ctx.closePath();
+  ctx.fillStyle = chasing ? 'rgba(255,60,60,0.22)' : 'rgba(255,220,90,0.14)';
+  ctx.fill();
+  ctx.restore();
+  // body
+  ctx.beginPath();
+  ctx.arc(g.x,g.y,11,0,Math.PI*2);
+  ctx.fillStyle = chasing ? '#8b1e3f' : '#5b2a86';
+  ctx.fill();
+  ctx.fillStyle = '#f1e6ff';
+  ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath(); ctx.arc(g.x,g.y+2,2.5,0,Math.PI*2); ctx.fill();
+  if(chasing){
+    ctx.fillStyle='#ff4d4d';
+    ctx.font='bold 14px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('!', g.x, g.y-18);
+  }
+}
+function drawPlayer(){
+  if(invulnT>0 && Math.floor(invulnT*10)%2===0) return;
+  ctx.beginPath();
+  ctx.arc(player.x,player.y,player.half,0,Math.PI*2);
+  ctx.fillStyle = player.sneaking ? '#4b7bec' : '#22c1c3';
+  ctx.fill();
+  ctx.strokeStyle='#eafffb'; ctx.lineWidth=2; ctx.stroke();
+}
+function drawBoss(){
+  if(!boss) return;
+  const glow = boss.vulnerable;
+  ctx.save();
+  if(glow){
+    ctx.shadowColor='#ffd700';
+    ctx.shadowBlur=25;
+  }
+  ctx.beginPath();
+  ctx.arc(boss.x,boss.y,26,0,Math.PI*2);
+  ctx.fillStyle = glow ? '#f7d774' : '#3b1257';
+  ctx.fill();
+  ctx.restore();
+  // hat
+  ctx.beginPath();
+  ctx.moveTo(boss.x,boss.y-55);
+  ctx.lineTo(boss.x-20,boss.y-22);
+  ctx.lineTo(boss.x+20,boss.y-22);
+  ctx.closePath();
+  ctx.fillStyle = glow ? '#ffe9a8' : '#241035';
+  ctx.fill();
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.arc(boss.x-8,boss.y-2,4,0,Math.PI*2); ctx.arc(boss.x+8,boss.y-2,4,0,Math.PI*2); ctx.fill();
+  if(glow){
+    ctx.fillStyle='#ffd700';
+    ctx.font='bold 13px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('ATTACK! [SPACE]', boss.x, boss.y-70);
+  }
+  for(const tg of boss.telegraphs){
+    const p = tg.t/tg.life;
+    ctx.beginPath();
+    ctx.arc(tg.x,tg.y, tg.maxR*p, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,60,60,'+(0.15+0.25*p)+')';
+    ctx.fill();
+    ctx.strokeStyle='rgba(255,120,120,0.8)';
+    ctx.lineWidth=2;
+    ctx.stroke();
+  }
+}
+function drawButton(t){
+  if(!secretButtonActive) return;
+  const pulse = 0.6+0.4*Math.sin(t*4);
+  ctx.beginPath();
+  ctx.arc(BUTTON_POS.x,BUTTON_POS.y,16,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(255,60,60,'+pulse+')';
+  ctx.fill();
+  ctx.strokeStyle='#ffd0d0'; ctx.lineWidth=3; ctx.stroke();
+  if(dist(player.x,player.y,BUTTON_POS.x,BUTTON_POS.y) < 60){
+    ctx.fillStyle='#fff';
+    ctx.font='bold 12px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('Press E', BUTTON_POS.x, BUTTON_POS.y-26);
+  }
+}
+function drawDoor(t){
+  const active = gameState==='escape';
+  ctx.fillStyle = active ? ('rgba(255,215,0,'+(0.6+0.4*Math.sin(t*6))+')') : '#e8c86a';
+  ctx.beginPath();
+  ctx.arc(DOOR_POS.x,DOOR_POS.y,14,0,Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle='#1a0f22';
+  ctx.font='bold 10px sans-serif';
+  ctx.textAlign='center';
+  ctx.fillText('EXIT', DOOR_POS.x, DOOR_POS.y+30);
+}
+function drawGrid(t){
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const x=c*CELL, y=r*CELL;
+      const key = r+','+c;
+      if(grid[r][c]===1){
+        ctx.fillStyle = (r+c)%2===0 ? '#241b2e' : '#2a2035';
+        ctx.fillRect(x,y,CELL,CELL);
+      } else if(gateSet.has(key)){
+        const pulse = 0.5+0.4*Math.sin(t*3);
+        ctx.fillStyle = 'rgba(240,80,220,'+(0.45+0.35*pulse)+')';
+        ctx.fillRect(x,y,CELL,CELL);
+      } else {
+        ctx.fillStyle = '#120c19';
+        ctx.fillRect(x,y,CELL,CELL);
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        ctx.fillRect(x,y,CELL,4);
+      }
+    }
+  }
+}
+
+function render(t){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  drawGrid(t);
+  for(const sw of switches) if(!sw.collected) drawSwitchIcon(sw.x,sw.y,t);
+  drawButton(t);
+  drawDoor(t);
+  if(gameState!=='boss') for(const g of guards) drawGuard(g);
+  drawPlayer();
+  if(gameState==='boss') drawBoss();
+}
+
+// ---------- loop ----------
+function loop(now){
+  if(!lastTime) lastTime = now;
+  let dt = (now-lastTime)/1000;
+  lastTime = now;
+  dt = Math.min(dt, 0.05);
+  update(dt);
+  render(now/1000);
+  requestAnimationFrame(loop);
+}
+
+function startGame(){
+  document.getElementById('menu').style.display='none';
+  document.getElementById('winScreen').style.display='none';
+  document.getElementById('loseScreen').style.display='none';
+  resetState();
+  lastTime = null;
+}
+
+resetState();
+gameState = 'menu';
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
