@@ -15,6 +15,7 @@ canvas { display:block; background:#150f1c; }
            z-index:10; }
 #hearts { top:12px; left:12px; padding:8px 14px; font-size:18px; letter-spacing:4px; }
 #switchCount { top:12px; left:150px; padding:8px 14px; font-size:14px; font-weight:600; }
+#weaponLabel { top:52px; left:150px; padding:6px 14px; font-size:13px; font-weight:600; }
 #stateBanner { top:12px; left:50%; transform:translateX(-50%); padding:7px 22px; font-size:13px;
                font-weight:700; letter-spacing:1px; text-transform:uppercase; z-index:10;
                position:absolute; background:rgba(10,8,16,0.85); border-radius:20px; transition:color .3s; }
@@ -45,12 +46,13 @@ canvas { display:block; background:#150f1c; }
 
 <div id="hearts" class="hud-box">❤❤❤</div>
 <div id="switchCount" class="hud-box">🎮 0 / 5</div>
+<div id="weaponLabel" class="hud-box">✊ Fists</div>
 <div id="stateBanner">Sneaking In...</div>
 <div id="bossBar" class="hud-box">
   <div class="lbl">SEYMOUR BUTTS</div>
   <div id="bossBarOuter"><div id="bossBarFill"></div></div>
 </div>
-<div id="ctrlHint" class="hud-box">WASD / Arrows — Move<br>Hold Shift — Sneak (slower, harder to spot)<br>Space — Attack (during boss fight)<br>E — Interact · R — Restart</div>
+<div id="ctrlHint" class="hud-box">WASD / Arrows — Move<br>Hold Shift — Sneak (slower, harder to spot)<br>Space — Fight! (fists, or a found weapon)<br>E — Interact · R — Restart</div>
 <div id="toasts" class="hud-box"></div>
 
 <div id="menu" class="overlay">
@@ -58,7 +60,8 @@ canvas { display:block; background:#150f1c; }
   <div style="color:#8a8194;font-size:.85em;margin-bottom:20px;letter-spacing:1px;">ESCAPE THE TOWER OF SEYMOUR BUTTS</div>
   <p>You wake up locked inside the tower of the evil sorceress Seymour Butts. While you were out cold, Seymour Butts and the butler army — the <b>Seymour Butts Jrs</b> — raided your room and stole every single one of your Nintendo Switches.</p>
   <p>Sneak past the Jrs, recover all <b>5 stolen Switches</b>, force your way into the throne room to beat Seymour Butts, then smash the secret button and sprint for the door before every Jr in the tower comes for you.</p>
-  <div class="controls">WASD / Arrow Keys to move &nbsp;·&nbsp; Hold Shift to sneak &nbsp;·&nbsp; Stay out of the guards' yellow vision cones</div>
+  <p>You're not defenseless — hit <b>SPACE</b> to fight. Bare fists just stun a Jr, but a <b>Frying Pan</b> knocks one out for good and a <b>Toy Blaster</b> takes them down from range. Both are hidden somewhere in the tower.</p>
+  <div class="controls">WASD / Arrow Keys to move &nbsp;·&nbsp; Hold Shift to sneak &nbsp;·&nbsp; SPACE to fight &nbsp;·&nbsp; Stay out of the guards' yellow vision cones</div>
   <button class="btn" onclick="startGame()">Begin The Heist</button>
 </div>
 
@@ -174,16 +177,32 @@ function makeGuards(){
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
     {name:'Captain Jr', x:848, y:280, wp:[{x:848,y:280},{x:848,y:480}], wpI:0,
      patrolSpeed:60, chaseSpeed:128, visionRange:200, visionHalf:0.6, dir:0, state:'patrol', alertT:0},
+    {name:'Corridor Jr 2', x:300, y:576, wp:[{x:300,y:576},{x:600,y:576}], wpI:0,
+     patrolSpeed:58, chaseSpeed:118, visionRange:170, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Vertical B Jr', x:368, y:200, wp:[{x:368,y:200},{x:368,y:550}], wpI:0,
+     patrolSpeed:52, chaseSpeed:110, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
+    {name:'Vertical D Jr', x:624, y:200, wp:[{x:624,y:200},{x:624,y:550}], wpI:0,
+     patrolSpeed:52, chaseSpeed:110, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
   ];
 }
+function makeWeapons(){
+  return [
+    {id:'pan', type:'pan', x:700, y:576, collected:false},
+    {id:'blaster', type:'blaster', x:400, y:380, collected:false},
+  ];
+}
+function weaponTier(w){ return w==='blaster' ? 2 : w==='pan' ? 1 : 0; }
 
-let player, switches, guards, boss, toasts, gameState, hearts, switchesCollected,
+let player, switches, weapons, projectiles, guards, boss, toasts, gameState, hearts, switchesCollected,
     bossDefeated, secretButtonActive, escapeTimer, invulnT, escapeBoost, lastTime, screenFlashT;
 
 function resetState(){
   buildMap();
-  player = {x:SPAWN_POS.x, y:SPAWN_POS.y, half:12, speed:150, sneakSpeed:80, sneaking:false};
+  player = {x:SPAWN_POS.x, y:SPAWN_POS.y, half:12, speed:150, sneakSpeed:80, sneaking:false,
+            weapon:null, facingX:0, facingY:-1, atkCd:0, atkAnim:0};
   switches = makeSwitches();
+  weapons = makeWeapons();
+  projectiles = [];
   guards = makeGuards();
   boss = null;
   toasts = [];
@@ -198,6 +217,7 @@ function resetState(){
   gameState = 'play';
   updateHeartsUI();
   updateSwitchUI();
+  updateWeaponUI();
   document.getElementById('bossBar').style.display = 'none';
   setBanner('Sneaking In...', '#f0abfc');
 }
@@ -207,6 +227,10 @@ function updateHeartsUI(){
 }
 function updateSwitchUI(){
   document.getElementById('switchCount').textContent = '🎮 ' + switchesCollected + ' / ' + TOTAL_SWITCHES;
+}
+function updateWeaponUI(){
+  const label = player.weapon==='blaster' ? '🔫 Toy Blaster' : player.weapon==='pan' ? '🍳 Frying Pan' : '✊ Fists';
+  document.getElementById('weaponLabel').textContent = label;
 }
 function setBanner(text,color){
   const b = document.getElementById('stateBanner');
@@ -238,6 +262,7 @@ window.addEventListener('keydown', e=>{
   keys.add(k);
   if(k==='r') { startGame(); return; }
   if(gameState==='boss' && k===' '){ onBossAttackKey(); }
+  else if((gameState==='play'||gameState==='escape') && k===' '){ onPlayerAttack(); }
   if(gameState==='play' && k==='e'){ tryPressButton(); }
 });
 window.addEventListener('keyup', e=> keys.delete(e.key.toLowerCase()));
@@ -251,6 +276,8 @@ function tryPressButton(){
 
 // ---------- guard AI ----------
 function updateGuard(g,dt){
+  if(g.defeated) return;
+  if(g.stunTimer>0){ g.stunTimer-=dt; return; }
   if(gameState==='boss') return;
   if(gameState==='escape'){
     g.state='chase';
@@ -299,6 +326,51 @@ function onPlayerCaught(){
 function unlockGate(){
   gateTiles.forEach(t=> grid[t.row][t.col]=1);
   addToast('The magic barrier dissolves! The throne room is open!');
+}
+
+// ---------- combat ----------
+function defeatGuard(g){
+  g.defeated = true;
+  g.stunTimer = 0;
+}
+function onPlayerAttack(){
+  if(player.atkCd>0) return;
+  player.atkAnim = 0.18;
+  if(player.weapon==='blaster'){
+    projectiles.push({x:player.x, y:player.y, dx:player.facingX, dy:player.facingY, dist:0, maxDist:280});
+    player.atkCd = 0.5;
+    return;
+  }
+  const range = player.weapon==='pan' ? 52 : 34;
+  for(const g of guards){
+    if(g.defeated || g.stunTimer>0) continue;
+    const d = dist(player.x,player.y,g.x,g.y);
+    if(d>range) continue;
+    const toGx=(g.x-player.x)/(d||1), toGy=(g.y-player.y)/(d||1);
+    const dot = toGx*player.facingX + toGy*player.facingY;
+    if(dot < 0.3) continue;
+    if(player.weapon==='pan'){ defeatGuard(g); addToast('Bonked a Jr with the frying pan!'); }
+    else { g.stunTimer = 2.2; addToast('Stunned a Jr with a punch!'); }
+    break;
+  }
+  player.atkCd = 0.45;
+}
+function updateProjectiles(dt){
+  const speed = 420;
+  for(let i=projectiles.length-1;i>=0;i--){
+    const p = projectiles[i];
+    const step = speed*dt;
+    p.x += p.dx*step; p.y += p.dy*step; p.dist += step;
+    let hit = false;
+    if(solidPixel(p.x,p.y)) hit = true;
+    if(!hit){
+      for(const g of guards){
+        if(g.defeated || g.stunTimer>0) continue;
+        if(dist(p.x,p.y,g.x,g.y) < 16){ defeatGuard(g); addToast('Blasted a Jr with the toy blaster!'); hit=true; break; }
+      }
+    }
+    if(hit || p.dist>p.maxDist) projectiles.splice(i,1);
+  }
 }
 
 // ---------- boss ----------
@@ -411,6 +483,7 @@ function updatePlayer(dt){
   if(keys.has('d')||keys.has('arrowright')) dx+=1;
   player.sneaking = keys.has('shift');
   if(dx!==0&&dy!==0){ dx*=0.7071; dy*=0.7071; }
+  if(dx!==0||dy!==0){ player.facingX=dx; player.facingY=dy; }
   const sp = player.sneaking ? player.sneakSpeed : player.speed;
   tryMove(player, dx*sp*dt, dy*sp*dt, player.half);
 }
@@ -422,6 +495,9 @@ function update(dt){
   else document.getElementById('screenFlash').style.opacity = 0;
 
   updatePlayer(dt);
+  if(player.atkCd>0) player.atkCd -= dt;
+  if(player.atkAnim>0) player.atkAnim -= dt;
+  updateProjectiles(dt);
 
   if(gameState==='boss'){
     updateBoss(dt);
@@ -434,6 +510,19 @@ function update(dt){
         updateSwitchUI();
         addToast('Nintendo Switch recovered! (' + switchesCollected + '/' + TOTAL_SWITCHES + ')');
         if(switchesCollected===TOTAL_SWITCHES) unlockGate();
+      }
+    }
+    // weapons
+    for(const w of weapons){
+      if(!w.collected && dist(player.x,player.y,w.x,w.y) < 24){
+        w.collected = true;
+        if(weaponTier(w.type) > weaponTier(player.weapon)){
+          player.weapon = w.type;
+          updateWeaponUI();
+          addToast(w.type==='pan' ? 'Picked up a Frying Pan! Press SPACE to bonk Jrs.' : 'Picked up a Toy Blaster! Press SPACE to blast Jrs from range.');
+        } else {
+          addToast('Found a spare ' + (w.type==='pan'?'Frying Pan':'Toy Blaster') + ' — already got something better.');
+        }
       }
     }
     // boss trigger
@@ -465,7 +554,60 @@ function drawSwitchIcon(x,y,t){
   ctx.fillStyle='#cfd8dc'; ctx.fillRect(-6,-6,12,12);
   ctx.restore();
 }
+function drawWeaponPickup(w,t){
+  const bob = Math.sin(t*3)*3;
+  ctx.save();
+  ctx.translate(w.x,w.y+bob);
+  if(w.type==='pan'){
+    ctx.fillStyle='#9ca3af';
+    ctx.beginPath(); ctx.arc(-4,-2,10,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#6b7280'; ctx.lineWidth=4; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(4,6); ctx.lineTo(16,18); ctx.stroke();
+  } else {
+    ctx.fillStyle='#f97316';
+    roundRect(ctx,-14,-7,24,14,3); ctx.fill();
+    ctx.fillStyle='#fbbf24';
+    ctx.fillRect(9,-4,10,8);
+  }
+  ctx.restore();
+}
+function drawProjectiles(){
+  for(const p of projectiles){
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,5,0,Math.PI*2);
+    ctx.fillStyle='#fbbf24';
+    ctx.fill();
+  }
+}
 function drawGuard(g){
+  if(g.defeated){
+    ctx.save();
+    ctx.globalAlpha = 0.65;
+    ctx.beginPath();
+    ctx.ellipse(g.x,g.y,15,8,0,0,Math.PI*2);
+    ctx.fillStyle = '#5b2a86';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('x_x', g.x, g.y+3);
+    ctx.restore();
+    return;
+  }
+  if(g.stunTimer>0){
+    ctx.beginPath();
+    ctx.arc(g.x,g.y,11,0,Math.PI*2);
+    ctx.fillStyle = '#5b2a86';
+    ctx.fill();
+    ctx.fillStyle = '#f1e6ff';
+    ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('*', g.x-9, g.y-14);
+    ctx.fillText('*', g.x+9, g.y-14);
+    return;
+  }
   const chasing = g.state==='chase';
   // vision cone
   ctx.save();
@@ -501,6 +643,17 @@ function drawPlayer(){
   ctx.fillStyle = player.sneaking ? '#4b7bec' : '#22c1c3';
   ctx.fill();
   ctx.strokeStyle='#eafffb'; ctx.lineWidth=2; ctx.stroke();
+  if(player.atkAnim>0 && player.weapon!=='blaster'){
+    ctx.save();
+    ctx.translate(player.x,player.y);
+    ctx.rotate(Math.atan2(player.facingY,player.facingX));
+    ctx.beginPath();
+    ctx.arc(0,0, player.weapon==='pan'?52:34, -0.9, 0.9);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 function drawBoss(){
   if(!boss) return;
@@ -594,9 +747,11 @@ function render(t){
   ctx.clearRect(0,0,cv.width,cv.height);
   drawGrid(t);
   for(const sw of switches) if(!sw.collected) drawSwitchIcon(sw.x,sw.y,t);
+  for(const w of weapons) if(!w.collected) drawWeaponPickup(w,t);
   drawButton(t);
   drawDoor(t);
   if(gameState!=='boss') for(const g of guards) drawGuard(g);
+  drawProjectiles();
   drawPlayer();
   if(gameState==='boss') drawBoss();
 }
