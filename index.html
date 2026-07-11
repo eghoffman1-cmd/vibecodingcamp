@@ -871,12 +871,13 @@ function mpShowSection(id){ ["mpMenu","mpWaiting","mpJoining"].forEach(s=>docume
 
 function mpCreate(){
   mpSetMsg("Connecting…","#aaa");
-  peer = new Peer();
-  peer.on("open", id=>{
-    mpRoomCode = id;
+  const code = Math.random().toString(36).substr(2,6).toUpperCase();
+  peer = new Peer(code.toLowerCase());
+  peer.on("open", ()=>{
+    mpRoomCode = code;
     mpIsHost = true;
-    document.getElementById("mpCode").textContent = id.slice(0,8).toUpperCase();
-    document.getElementById("mpRoomDisplay").onclick = ()=>{ navigator.clipboard?.writeText(id.slice(0,8).toUpperCase()); mpSetMsg("Copied!","#4ade80"); };
+    document.getElementById("mpCode").textContent = code;
+    document.getElementById("mpRoomDisplay").onclick = ()=>{ navigator.clipboard?.writeText(code); mpSetMsg("Copied!","#4ade80"); };
     mpShowSection("mpWaiting");
     peer.on("connection", conn=>{
       conn.on("open",()=>{
@@ -899,7 +900,6 @@ function mpJoin(){
   document.getElementById("mpJoinStatus").textContent = "Looking up room…";
   peer = new Peer();
   peer.on("open", ()=>{
-    // look up full peer ID by prefix
     const conn = peer.connect(raw.toLowerCase(), {reliable:true});
     document.getElementById("mpJoinStatus").textContent = "Found room, connecting…";
     conn.on("open",()=>{
