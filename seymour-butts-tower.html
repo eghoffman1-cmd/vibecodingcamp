@@ -593,51 +593,79 @@ function drawGuard(g){
     ctx.restore();
     return;
   }
-  if(g.stunTimer>0){
-    ctx.beginPath();
-    ctx.arc(g.x,g.y,11,0,Math.PI*2);
-    ctx.fillStyle = g.color;
-    ctx.fill();
-    ctx.fillStyle = '#f1e6ff';
-    ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = '#ffd700';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign='center';
-    ctx.fillText('*', g.x-9, g.y-14);
-    ctx.fillText('*', g.x+9, g.y-14);
-    return;
-  }
   const chasing = g.state==='chase';
-  // vision cone
+  const stunned = g.stunTimer>0;
+  if(!stunned){
+    // vision cone
+    ctx.save();
+    ctx.translate(g.x,g.y);
+    ctx.rotate(g.dir);
+    ctx.beginPath();
+    ctx.moveTo(0,0);
+    ctx.arc(0,0, g.visionRange, -g.visionHalf, g.visionHalf);
+    ctx.closePath();
+    ctx.fillStyle = chasing ? 'rgba(255,60,60,0.22)' : 'rgba(255,220,90,0.14)';
+    ctx.fill();
+    ctx.restore();
+  }
+  const bodyColor = chasing ? '#8b1e3f' : g.color;
   ctx.save();
   ctx.translate(g.x,g.y);
-  ctx.rotate(g.dir);
+  // shadow
   ctx.beginPath();
-  ctx.moveTo(0,0);
-  ctx.arc(0,0, g.visionRange, -g.visionHalf, g.visionHalf);
-  ctx.closePath();
-  ctx.fillStyle = chasing ? 'rgba(255,60,60,0.22)' : 'rgba(255,220,90,0.14)';
+  ctx.ellipse(0,9,10,4.5,0,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fill();
-  ctx.restore();
-  // body
+  ctx.rotate(g.dir + Math.PI/2);
+  // legs
+  ctx.fillStyle = '#20161a';
+  ctx.beginPath(); ctx.ellipse(-3.5,7,3,5.5,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(3.5,7,3,5.5,0,0,Math.PI*2); ctx.fill();
+  // arms
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath(); ctx.ellipse(-8,1,3,5.5,0.3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(8,1,3,5.5,-0.3,0,Math.PI*2); ctx.fill();
+  // torso (butler vest)
+  roundRect(ctx,-7,-6,14,16,5);
+  ctx.fillStyle = bodyColor;
+  ctx.fill();
+  if(g.elite){ ctx.strokeStyle='#ffd700'; ctx.lineWidth=1.5; ctx.stroke(); }
+  else { ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1; ctx.stroke(); }
+  // shirt collar
   ctx.beginPath();
-  ctx.arc(g.x,g.y,11,0,Math.PI*2);
-  ctx.fillStyle = chasing ? '#8b1e3f' : g.color;
-  ctx.fill();
-  if(g.elite){
-    ctx.strokeStyle = '#ffd700';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-  }
-  ctx.fillStyle = '#f1e6ff';
-  ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
+  ctx.moveTo(0,-6); ctx.lineTo(-3,-1); ctx.lineTo(3,-1); ctx.closePath();
+  ctx.fillStyle = '#f1e6ff'; ctx.fill();
+  // bowtie
   ctx.fillStyle = '#c0392b';
-  ctx.beginPath(); ctx.arc(g.x,g.y+2,2.5,0,Math.PI*2); ctx.fill();
-  if(chasing){
+  ctx.beginPath(); ctx.moveTo(-3,-2); ctx.lineTo(0,0); ctx.lineTo(-3,2); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(3,-2); ctx.lineTo(0,0); ctx.lineTo(3,2); ctx.closePath(); ctx.fill();
+  // head
+  ctx.beginPath(); ctx.arc(0,-11,6.5,0,Math.PI*2); ctx.fillStyle='#e0ac69'; ctx.fill();
+  // hair
+  ctx.beginPath(); ctx.arc(0,-12.5,6.5,Math.PI,Math.PI*2); ctx.fillStyle='#2a2a2a'; ctx.fill();
+  // mustache
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(-3,-9,6,1.6);
+  if(g.elite){
+    // little top hat
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-4,-19,8,4);
+    ctx.fillRect(-5,-16,10,2);
+    ctx.fillStyle = '#ffd700';
+    ctx.fillRect(-4,-15.5,8,1.2);
+  }
+  ctx.restore();
+  if(stunned){
+    ctx.fillStyle = '#ffd700';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign='center';
+    ctx.fillText('*', g.x-9, g.y-24);
+    ctx.fillText('*', g.x+9, g.y-24);
+  } else if(chasing){
     ctx.fillStyle='#ff4d4d';
     ctx.font='bold 14px sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('!', g.x, g.y-18);
+    ctx.fillText('!', g.x, g.y-26);
   }
 }
 function drawPlayer(){
@@ -690,31 +718,63 @@ function drawPlayer(){
 function drawBoss(){
   if(!boss) return;
   const glow = boss.vulnerable;
+  const robe = glow ? '#f7d774' : '#3b1257';
   ctx.save();
-  if(glow){
-    ctx.shadowColor='#ffd700';
-    ctx.shadowBlur=25;
-  }
+  ctx.translate(boss.x,boss.y);
+  if(glow){ ctx.shadowColor='#ffd700'; ctx.shadowBlur=28; }
+  // shadow
   ctx.beginPath();
-  ctx.arc(boss.x,boss.y,26,0,Math.PI*2);
-  ctx.fillStyle = glow ? '#f7d774' : '#3b1257';
+  ctx.ellipse(0,32,22,8,0,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fill();
-  ctx.restore();
-  // hat
+  // cape
   ctx.beginPath();
-  ctx.moveTo(boss.x,boss.y-55);
-  ctx.lineTo(boss.x-20,boss.y-22);
-  ctx.lineTo(boss.x+20,boss.y-22);
+  ctx.moveTo(0,-10);
+  ctx.lineTo(-30,32);
+  ctx.lineTo(0,22);
+  ctx.lineTo(30,32);
   ctx.closePath();
-  ctx.fillStyle = glow ? '#ffe9a8' : '#241035';
+  ctx.fillStyle = glow ? '#e8c04c' : '#241035';
   ctx.fill();
-  ctx.fillStyle='#fff';
-  ctx.beginPath(); ctx.arc(boss.x-8,boss.y-2,4,0,Math.PI*2); ctx.arc(boss.x+8,boss.y-2,4,0,Math.PI*2); ctx.fill();
+  // arms
+  ctx.fillStyle = robe;
+  ctx.beginPath(); ctx.ellipse(-19,-1,6,13,0.25,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(19,-1,6,13,-0.25,0,Math.PI*2); ctx.fill();
+  // torso / dress
+  roundRect(ctx,-16,-15,32,34,12);
+  ctx.fillStyle = robe;
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5; ctx.stroke();
+  // hair (long, framing face)
+  ctx.beginPath();
+  ctx.moveTo(-11,-24); ctx.quadraticCurveTo(-17,0,-8,11); ctx.lineTo(-4,-3); ctx.closePath();
+  ctx.fillStyle = '#241035'; ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(11,-24); ctx.quadraticCurveTo(17,0,8,11); ctx.lineTo(4,-3); ctx.closePath();
+  ctx.fillStyle = '#241035'; ctx.fill();
+  // head
+  ctx.beginPath(); ctx.arc(0,-24,11,0,Math.PI*2); ctx.fillStyle = '#e0ac69'; ctx.fill();
+  // face
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-4,-25,2.2,0,Math.PI*2); ctx.arc(4,-25,2.2,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#5a3010'; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(-3,-18); ctx.quadraticCurveTo(0,-16,3,-18); ctx.stroke();
+  // witch hat
+  ctx.beginPath();
+  ctx.moveTo(0,-60);
+  ctx.lineTo(-18,-27);
+  ctx.lineTo(18,-27);
+  ctx.closePath();
+  ctx.fillStyle = glow ? '#ffe9a8' : '#1a0a2a';
+  ctx.fill();
+  ctx.fillStyle = glow ? '#e8c04c' : '#4c1d95';
+  ctx.fillRect(-21,-29,42,5);
+  ctx.restore();
   if(glow){
     ctx.fillStyle='#ffd700';
     ctx.font='bold 13px sans-serif';
     ctx.textAlign='center';
-    ctx.fillText('ATTACK! [SPACE]', boss.x, boss.y-70);
+    ctx.fillText('ATTACK! [SPACE]', boss.x, boss.y-75);
   }
   for(const tg of boss.telegraphs){
     const p = tg.t/tg.life;
