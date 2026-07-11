@@ -163,25 +163,25 @@ function makeSwitches(){
 }
 function makeGuards(){
   return [
-    {name:'Corridor Jr', x:150, y:576, wp:[{x:150,y:576},{x:850,y:576}], wpI:0,
+    {name:'Corridor Jr', color:'#5b2a86', x:150, y:576, wp:[{x:150,y:576},{x:850,y:576}], wpI:0,
      patrolSpeed:55, chaseSpeed:112, visionRange:170, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Room A Jr', x:80, y:80, wp:[{x:80,y:80},{x:180,y:80},{x:180,y:150},{x:80,y:150}], wpI:0,
+    {name:'Room A Jr', color:'#1d6f6f', x:80, y:80, wp:[{x:80,y:80},{x:180,y:80},{x:180,y:150},{x:80,y:150}], wpI:0,
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Room B Jr', x:320, y:80, wp:[{x:320,y:80},{x:440,y:80},{x:440,y:150},{x:320,y:150}], wpI:0,
+    {name:'Room B Jr', color:'#8a5a1d', x:320, y:80, wp:[{x:320,y:80},{x:440,y:80},{x:440,y:150},{x:320,y:150}], wpI:0,
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Room C Jr', x:310, y:300, wp:[{x:310,y:300},{x:420,y:300},{x:420,y:390},{x:310,y:390}], wpI:0,
+    {name:'Room C Jr', color:'#2d6a3e', x:310, y:300, wp:[{x:310,y:300},{x:420,y:300},{x:420,y:390},{x:310,y:390}], wpI:0,
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Room D Jr', x:576, y:80, wp:[{x:576,y:80},{x:696,y:80},{x:696,y:150},{x:576,y:150}], wpI:0,
+    {name:'Room D Jr', color:'#5a3d99', x:576, y:80, wp:[{x:576,y:80},{x:696,y:80},{x:696,y:150},{x:576,y:150}], wpI:0,
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Room E Jr', x:566, y:300, wp:[{x:566,y:300},{x:676,y:300},{x:676,y:390},{x:566,y:390}], wpI:0,
+    {name:'Room E Jr', color:'#9c2b52', x:566, y:300, wp:[{x:566,y:300},{x:676,y:300},{x:676,y:390},{x:566,y:390}], wpI:0,
      patrolSpeed:50, chaseSpeed:108, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Captain Jr', x:848, y:280, wp:[{x:848,y:280},{x:848,y:480}], wpI:0,
-     patrolSpeed:60, chaseSpeed:128, visionRange:200, visionHalf:0.6, dir:0, state:'patrol', alertT:0},
-    {name:'Corridor Jr 2', x:300, y:576, wp:[{x:300,y:576},{x:600,y:576}], wpI:0,
+    {name:'Captain Jr', color:'#8a7220', x:848, y:280, wp:[{x:848,y:280},{x:848,y:480}], wpI:0,
+     patrolSpeed:60, chaseSpeed:128, visionRange:200, visionHalf:0.6, dir:0, state:'patrol', alertT:0, elite:true},
+    {name:'Corridor Jr 2', color:'#3d5a99', x:300, y:576, wp:[{x:300,y:576},{x:600,y:576}], wpI:0,
      patrolSpeed:58, chaseSpeed:118, visionRange:170, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Vertical B Jr', x:368, y:200, wp:[{x:368,y:200},{x:368,y:550}], wpI:0,
+    {name:'Vertical B Jr', color:'#996b3d', x:368, y:200, wp:[{x:368,y:200},{x:368,y:550}], wpI:0,
      patrolSpeed:52, chaseSpeed:110, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
-    {name:'Vertical D Jr', x:624, y:200, wp:[{x:624,y:200},{x:624,y:550}], wpI:0,
+    {name:'Vertical D Jr', color:'#6a2d5a', x:624, y:200, wp:[{x:624,y:200},{x:624,y:550}], wpI:0,
      patrolSpeed:52, chaseSpeed:110, visionRange:160, visionHalf:0.55, dir:0, state:'patrol', alertT:0},
   ];
 }
@@ -585,7 +585,7 @@ function drawGuard(g){
     ctx.globalAlpha = 0.65;
     ctx.beginPath();
     ctx.ellipse(g.x,g.y,15,8,0,0,Math.PI*2);
-    ctx.fillStyle = '#5b2a86';
+    ctx.fillStyle = g.color;
     ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 10px sans-serif';
@@ -597,7 +597,7 @@ function drawGuard(g){
   if(g.stunTimer>0){
     ctx.beginPath();
     ctx.arc(g.x,g.y,11,0,Math.PI*2);
-    ctx.fillStyle = '#5b2a86';
+    ctx.fillStyle = g.color;
     ctx.fill();
     ctx.fillStyle = '#f1e6ff';
     ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
@@ -623,8 +623,13 @@ function drawGuard(g){
   // body
   ctx.beginPath();
   ctx.arc(g.x,g.y,11,0,Math.PI*2);
-  ctx.fillStyle = chasing ? '#8b1e3f' : '#5b2a86';
+  ctx.fillStyle = chasing ? '#8b1e3f' : g.color;
   ctx.fill();
+  if(g.elite){
+    ctx.strokeStyle = '#ffd700';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
   ctx.fillStyle = '#f1e6ff';
   ctx.beginPath(); ctx.arc(g.x,g.y-3,5,0,Math.PI*2); ctx.fill();
   ctx.fillStyle = '#c0392b';
@@ -638,11 +643,39 @@ function drawGuard(g){
 }
 function drawPlayer(){
   if(invulnT>0 && Math.floor(invulnT*10)%2===0) return;
+  const ang = Math.atan2(player.facingY, player.facingX);
+  const shirt = player.sneaking ? '#4b7bec' : '#22c1c3';
+  ctx.save();
+  ctx.translate(player.x,player.y);
+  // shadow
   ctx.beginPath();
-  ctx.arc(player.x,player.y,player.half,0,Math.PI*2);
-  ctx.fillStyle = player.sneaking ? '#4b7bec' : '#22c1c3';
+  ctx.ellipse(0,10,11,5,0,0,Math.PI*2);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
   ctx.fill();
-  ctx.strokeStyle='#eafffb'; ctx.lineWidth=2; ctx.stroke();
+  ctx.rotate(ang + Math.PI/2);
+  // legs
+  ctx.fillStyle = '#241a30';
+  ctx.beginPath(); ctx.ellipse(-4,8,3.5,6,0,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4,8,3.5,6,0,0,Math.PI*2); ctx.fill();
+  // arms
+  ctx.fillStyle = shirt;
+  ctx.beginPath(); ctx.ellipse(-9,2,3.5,6,0.3,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(9,2,3.5,6,-0.3,0,Math.PI*2); ctx.fill();
+  // torso
+  roundRect(ctx,-8,-6,16,18,6);
+  ctx.fillStyle = shirt;
+  ctx.fill();
+  ctx.strokeStyle = '#eafffb'; ctx.lineWidth = 1.5; ctx.stroke();
+  // head + hair
+  ctx.beginPath();
+  ctx.arc(0,-12,7,0,Math.PI*2);
+  ctx.fillStyle = '#e0ac69';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(0,-13,7,Math.PI,Math.PI*2);
+  ctx.fillStyle = '#3b2a1a';
+  ctx.fill();
+  ctx.restore();
   if(player.atkAnim>0 && player.weapon!=='blaster'){
     ctx.save();
     ctx.translate(player.x,player.y);
