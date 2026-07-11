@@ -260,9 +260,18 @@ function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 let peer=null, isHost=false, hostConn=null, connections=[], myId=null, myName='';
 let myRole=null, myTeammates=null;
 
-function uiCreateRoom(){
+const ROOM_CODE_CHARS = 'abcdefghjkmnpqrstuvwxyz23456789'; // no 0/o/1/i/l — avoids lookalike mixups
+function genRoomCode(){
+  let s='';
+  for(let i=0;i<6;i++) s += ROOM_CODE_CHARS[Math.floor(secureRandom()*ROOM_CODE_CHARS.length)];
+  return s;
+}
+
+function uiCreateRoom(attemptsLeft){
+  attemptsLeft = attemptsLeft===undefined ? 5 : attemptsLeft;
   myName = (document.getElementById('nameInput').value||'').trim().slice(0,16) || 'Host';
-  peer = new Peer();
+  const code = genRoomCode();
+  peer = new Peer(code);
   peer.on('open', id=>{
     isHost = true; myId = id;
     game.players.push(mkPlayer(id, myName));
@@ -275,11 +284,18 @@ function uiCreateRoom(){
     });
     showScreen('screen-lobby');
     document.getElementById('lobbyCodeBox').style.display='block';
-    document.getElementById('lobbyCode').textContent = id.slice(0,8).toUpperCase();
+    document.getElementById('lobbyCode').textContent = id.toUpperCase();
     document.getElementById('startBtn').style.display='block';
     hostBroadcastLobby();
   });
-  peer.on('error', e=>{ document.getElementById('homeErr').textContent = 'Error: '+e.type; });
+  peer.on('error', e=>{
+    if(e.type==='unavailable-id' && attemptsLeft>0){
+      try{ peer.destroy(); }catch(err){}
+      uiCreateRoom(attemptsLeft-1);
+      return;
+    }
+    document.getElementById('homeErr').textContent = 'Error: '+e.type;
+  });
 }
 
 function uiJoinRoom(){
