@@ -135,10 +135,10 @@ button.small{ width:auto; padding:8px 14px; font-size:.8em; margin:4px; }
     <h1>Midnight Trials<span class="rope">a social deduction game</span></h1>
     <div class="sub">Killers hunt by night. The Town votes by day.<br>Find them before the gallows finds you.</div>
     <input type="text" id="nameInput" maxlength="16" placeholder="Your name" spellcheck="false">
-    <button onclick="uiCreateRoom()">Create Room</button>
+    <button id="createBtn" onclick="uiCreateRoom()">Create Room</button>
     <div style="text-align:center;color:#555;margin:10px 0;font-size:.8em">— or —</div>
     <input type="text" id="joinInput" maxlength="12" placeholder="Room code" spellcheck="false" style="letter-spacing:3px;">
-    <button class="ghost" onclick="uiJoinRoom()">Join Room</button>
+    <button id="joinBtn" class="ghost" onclick="uiJoinRoom()">Join Room</button>
     <div class="errMsg" id="homeErr"></div>
   </div>
 </div>
@@ -267,12 +267,21 @@ function genRoomCode(){
   return s;
 }
 
+let createInProgress = false;
 function uiCreateRoom(attemptsLeft){
+  if(attemptsLeft===undefined){
+    if(createInProgress) return; // ignore rapid re-clicks stacking up extra peers
+    createInProgress = true;
+    document.getElementById('createBtn').disabled = true;
+    document.getElementById('homeErr').textContent = 'Connecting…';
+  }
   attemptsLeft = attemptsLeft===undefined ? 5 : attemptsLeft;
   myName = (document.getElementById('nameInput').value||'').trim().slice(0,16) || 'Host';
   const code = genRoomCode();
   peer = new Peer(code);
   peer.on('open', id=>{
+    createInProgress = false;
+    document.getElementById('createBtn').disabled = false;
     isHost = true; myId = id;
     game.players.push(mkPlayer(id, myName));
     peer.on('connection', conn=>{
@@ -294,30 +303,67 @@ function uiCreateRoom(attemptsLeft){
       uiCreateRoom(attemptsLeft-1);
       return;
     }
-    document.getElementById('homeErr').textContent = 'Error: '+e.type;
+    createInProgress = false;
+    document.getElementById('createBtn').disabled = false;
+    document.getElementById('homeErr').textContent = PEER_ERROR_MESSAGES[e.type] || ('Error: '+e.type);
   });
 }
 
+const PEER_ERROR_MESSAGES = {
+  'peer-unavailable': "No room found with that code. Double-check it (and that the host is still on the lobby screen), then try again.",
+  'network': "Network error reaching the connection server. Check your internet connection and try again.",
+  'server-error': "Connection server is having trouble right now. Wait a moment and try again.",
+  'socket-error': "Lost contact with the connection server. Try again.",
+  'socket-closed': "Connection to the server closed unexpectedly. Try again.",
+  'webrtc': "Your browser/network blocked the direct connection (common on some WiFi or VPNs). Try a different network, or have the host try instead.",
+  'disconnected': "Disconnected from the connection server. Try again.",
+};
+let joinInProgress = false;
+let joinTimeoutHandle = null;
+
+function uiCancelJoinAttempt(){
+  if(joinTimeoutHandle){ clearTimeout(joinTimeoutHandle); joinTimeoutHandle=null; }
+  joinInProgress = false;
+  document.getElementById('joinBtn').disabled = false;
+  if(peer){ try{ peer.destroy(); }catch(e){} peer=null; }
+}
+
 function uiJoinRoom(){
+  if(joinInProgress) return; // ignore rapid re-clicks stacking up extra connections
   myName = (document.getElementById('nameInput').value||'').trim().slice(0,16) || 'Player';
   const raw = (document.getElementById('joinInput').value||'').trim().toLowerCase();
   if(!raw){ document.getElementById('homeErr').textContent='Enter a room code first.'; return; }
+  joinInProgress = true;
+  document.getElementById('joinBtn').disabled = true;
   document.getElementById('homeErr').textContent = 'Connecting…';
   peer = new Peer();
+  joinTimeoutHandle = setTimeout(()=>{
+    document.getElementById('homeErr').textContent = "Timed out trying to connect. The host's network may be blocking direct connections, or the code may be wrong. Try again.";
+    uiCancelJoinAttempt();
+  }, 15000);
   peer.on('open', id=>{
     myId = id;
     const conn = peer.connect(raw, {reliable:true});
     conn.on('open', ()=>{
+      if(joinTimeoutHandle){ clearTimeout(joinTimeoutHandle); joinTimeoutHandle=null; }
+      joinInProgress = false;
       isHost = false; hostConn = conn;
       conn.on('data', data=>clientReceive(data));
       conn.on('close', ()=>{ document.getElementById('homeErr').textContent='Host disconnected.'; showScreen('screen-home'); });
       conn.send({type:'join', name:myName});
       showScreen('screen-lobby');
       document.getElementById('lobbyCodeBox').style.display='none';
+      document.getElementById('joinBtn').disabled = false;
     });
-    conn.on('error', ()=>{ document.getElementById('homeErr').textContent='Could not connect. Check the code.'; });
+    conn.on('error', e=>{
+      document.getElementById('homeErr').textContent = PEER_ERROR_MESSAGES[e?.type] || 'Could not connect. Check the code.';
+      uiCancelJoinAttempt();
+    });
   });
-  peer.on('error', e=>{ document.getElementById('homeErr').textContent='Error: '+e.type; });
+  peer.on('error', e=>{
+    document.getElementById('homeErr').textContent = PEER_ERROR_MESSAGES[e.type] || ('Error: '+e.type);
+    uiCancelJoinAttempt();
+  });
 }
 
 function uiCopyCode(){
