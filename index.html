@@ -317,7 +317,7 @@ const TASK_TEXT = {
 };
 
 function makeTask() {
-  const pool=TASK_TEXT[job.name]||["📋 City duty"];
+  const pool=TASK_TEXT[job.name]|["📋 City duty"];
   return { text:pick(pool), reward:rand(80,220), ttl:rand(60,120), done:false };
 }
 
@@ -389,7 +389,7 @@ function update(dt){
   timeMin+=dt*3; if(timeMin>=1440){timeMin=480;day++;log(`Day ${day} — new shift begins.`);}
   updatePlayer(dt); updateNPCs(dt); updateCars(dt); updateBullets(dt); updateRobberies(dt);
   particles.forEach(p=>{p.life-=dt;p.y+=p.vy*dt;p.vy+=20*dt;}); particles=particles.filter(p=>p.life>0);
-  player.tasks.forEach(t=>{if(!t.done){t.ttl-=dt;if(t.ttl<=0){t.done=true;player.rep=Math.max(0,player.rep-3);log("Task expired.");}}});
+  player.tasks.forEach(t=>{if(!t.done){t.ttl-=dt;if(t.ttl<=0){t.done=true;player.rep=Math.max(0,player.rep-3);log("Task expired.");}}})
   player.tasks=player.tasks.filter(t=>!t.done); while(player.tasks.length<2) player.tasks.push(makeTask());
   updateHUD();
 }
@@ -871,18 +871,18 @@ function mpShowSection(id){ ["mpMenu","mpWaiting","mpJoining"].forEach(s=>docume
 
 function mpCreate(){
   mpSetMsg("Connecting…","#aaa");
-  peer = new Peer();
-  peer.on("open", id=>{
-    mpRoomCode = id;
+  const code = Math.random().toString(36).substr(2,6).toUpperCase();
+  peer = new Peer(code.toLowerCase());
+  peer.on("open", ()=>{
+    mpRoomCode = code;
     mpIsHost = true;
-    document.getElementById("mpCode").textContent = id.slice(0,8).toUpperCase();
-    document.getElementById("mpRoomDisplay").onclick = ()=>{ navigator.clipboard?.writeText(id.slice(0,8).toUpperCase()); mpSetMsg("Copied!","#4ade80"); };
+    document.getElementById("mpCode").textContent = code;
+    document.getElementById("mpRoomDisplay").onclick = ()=>{ navigator.clipboard?.writeText(code); mpSetMsg("Copied!","#4ade80"); };
     mpShowSection("mpWaiting");
     peer.on("connection", conn=>{
       conn.on("open",()=>{
         mpConnections.push(conn);
         document.getElementById("mpCount").textContent = mpConnections.length;
-        // tell new joiner about existing remote players
         conn.send({type:"peers", peers: Object.keys(remotePlayers)});
         conn.on("data", data=>mpHandleData(conn, data));
         conn.on("close",()=>{ mpConnections=mpConnections.filter(c=>c!==conn); delete remotePlayers[conn.peer]; });
@@ -899,7 +899,6 @@ function mpJoin(){
   document.getElementById("mpJoinStatus").textContent = "Looking up room…";
   peer = new Peer();
   peer.on("open", ()=>{
-    // look up full peer ID by prefix
     const conn = peer.connect(raw.toLowerCase(), {reliable:true});
     document.getElementById("mpJoinStatus").textContent = "Found room, connecting…";
     conn.on("open",()=>{
@@ -921,7 +920,7 @@ function mpStartFromLobby(){ if(mpConnections.length===0&&!confirm("No one else 
 function mpStartGame(){
   document.getElementById("mpOverlay").style.display="none";
   mpActive = true;
-  mpSetStatus(`🌐 ${mpRoomCode?mpRoomCode.slice(0,8).toUpperCase():""} — ${mpConnections.length} online`);
+  mpSetStatus(`🌐 ${mpRoomCode||""} — ${mpConnections.length} online`);
 }
 
 function mpHandleData(fromConn, data){
@@ -958,7 +957,6 @@ function drawRemotePlayers(){
   for(const id of Object.keys(remotePlayers)){
     const r=remotePlayers[id];
     if(!r) continue;
-    // fade out stale players (no update in 5s)
     drawHuman(r.px,r.py,r.app||{skin:"#c68642",hair:"#111",shirt:r.jobColor||"#555",pants:"#1e293b"},r.walkPhase||0,1.08,r.jobColor||"#aaa");
     // name tag showing job
     ctx.save(); ctx.translate(r.px,r.py);
@@ -1050,7 +1048,6 @@ function cityNews(){
 }
 
 function requestBackup(){
-  // spawn 2 extra cops near player
   for(let i=0;i<2;i++){
     const p=randRoadPos();
     const c=spawnCop(p.x,p.y);
