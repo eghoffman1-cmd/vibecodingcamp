@@ -247,7 +247,8 @@ function shuffle(arr){
   return a;
 }
 
-const MIN_PLAYERS = 5;
+const GUILTY_VOTES_TO_HANG = 6;
+const MIN_PLAYERS = GUILTY_VOTES_TO_HANG + 1; // accused doesn't vote, so hanging must stay mathematically possible
 const MAX_PLAYERS = 15;
 const NIGHT_MS = 35000, DAY_MS = 75000, DEFENSE_MS = 20000, VERDICT_MS = 20000, INTERMISSION_MS = 6000;
 const BOT_NAMES = ['Nova','Rex','Vex','Luna','Axel','Ivy','Milo','Zara','Finch','Remy','Sable','Juno','Orion','Wren','Dash','Piper'];
@@ -625,7 +626,7 @@ function hostResolveVerdict(){
     if(vote==='guilty') guilty+=w; else if(vote==='innocent') innocent+=w; else abstain+=w;
   });
   const accused = findPlayer(game.accused);
-  const hanged = guilty>innocent;
+  const hanged = guilty>=GUILTY_VOTES_TO_HANG;
   if(hanged) accused.alive=false;
   game.phase='results';
   game.lastVerdict = { accusedName:accused.name, accusedRole:accused.role, guilty, innocent, abstain, hanged };
@@ -885,6 +886,7 @@ function renderCenter(st){
   if(st.phase==='trial-verdict'){
     let html = `<div class="accusedBox"><div class="center-sub">Verdict for:</div><div class="name">${escapeHtml(st.accusedName)}</div></div>`;
     html += `<div class="center-sub" style="max-height:60px;overflow-y:auto">${escapeHtml(st.defenseText||'(no defense given)')}</div>`;
+    html += `<div class="center-sub">${GUILTY_VOTES_TO_HANG}+ guilty votes hangs them.</div>`;
     if(myAlive && st.accused!==myId){
       html += `<div class="verdictBtns">
         <button class="vGuilty" onclick="send({type:'verdict',vote:'guilty'})">Guilty</button>
@@ -905,7 +907,7 @@ function renderCenter(st){
     html += `<div class="tally"><div><div class="n" style="color:var(--blood2)">${v.guilty}</div>Guilty</div><div><div class="n" style="color:var(--green)">${v.innocent}</div>Innocent</div><div><div class="n">${v.abstain}</div>Abstain</div></div>`;
     html += v.hanged
       ? `<div class="center-title" style="margin-top:20px;color:var(--blood2)">🪢 Hanged.</div><div class="center-sub">They were the <span class="roleTag" style="color:${ROLES[v.accusedRole].color}">${v.accusedRole}</span>.</div>`
-      : `<div class="center-title" style="margin-top:20px;color:var(--green)">Survives.</div><div class="center-sub">Guilty votes did not outweigh innocent votes.</div>`;
+      : `<div class="center-title" style="margin-top:20px;color:var(--green)">Survives.</div><div class="center-sub">Didn't reach ${GUILTY_VOTES_TO_HANG} guilty votes.</div>`;
     c.innerHTML = html;
     return;
   }
