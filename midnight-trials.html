@@ -477,27 +477,26 @@ function hostResolveNight(){
 function hostStartDay(){
   game.phase='day'; game.nominations={}; game.accused=null;
   hostScheduleBotDayActions();
-  hostSetTimer(DAY_MS, ()=>{ if(game.phase==='day') hostStartNight(); });
+  hostSetTimer(DAY_MS, hostResolveDay);
   hostBroadcastState();
 }
-function nominationThreshold(){ return Math.floor(livingPlayers().length/2)+1; }
+function hostResolveDay(){
+  if(game.phase!=='day') return;
+  const tally = tallyNominations();
+  const entries = Object.entries(tally);
+  if(!entries.length){ hostStartNight(); return; }
+  let best=0;
+  entries.forEach(([tid,count])=>{ if(count>best) best=count; });
+  const tied = entries.filter(([tid,count])=>count===best).map(([tid])=>tid);
+  const chosen = tied[Math.floor(secureRandom()*tied.length)];
+  hostStartTrial(chosen);
+}
 function hostOnNominate(pid, targetId){
   if(game.phase!=='day') return;
   const p=findPlayer(pid); if(!p||!p.alive) return;
   const t=findPlayer(targetId); if(!t||!t.alive||t.id===pid) return;
   game.nominations[pid]=targetId;
-  // tally with mayor weight
-  const tally={};
-  Object.entries(game.nominations).forEach(([nomId,tid])=>{
-    const nom=findPlayer(nomId); const w = (nom&&nom.mayorRevealed)?2:1;
-    tally[tid]=(tally[tid]||0)+w;
-  });
   hostBroadcastState();
-  for(const [tid,count] of Object.entries(tally)){
-    if(count >= nominationThreshold()){
-      hostStartTrial(tid); return;
-    }
-  }
 }
 function hostOnMayorReveal(pid){
   const p=findPlayer(pid);
@@ -863,7 +862,7 @@ function renderCenter(st){
         : `<div class="deathEntry survive">🌅 No one died last night.</div>`) + `</div>`;
     }
     html += `<div class="center-title">Discuss, then nominate a suspect</div>`;
-    html += `<div class="center-sub">Needs ${nominationThresholdClient(st)}+ nominations (weighted) to force a trial. Talk it out in Town Square.</div>`;
+    html += `<div class="center-sub">Whoever has the most nominations (weighted) when the day ends goes up on trial. Talk it out in Town Square.</div>`;
     if(myAlive) html += targetGrid(st, myId, false, true);
     if(myRole==='Mayor' && me && !me.mayorRevealed && myAlive){
       html += `<button class="gold" style="max-width:260px" onclick="send({type:'mayorReveal'})">👑 Reveal as Mayor (2x votes)</button>`;
@@ -919,8 +918,6 @@ function uiDefenseInput(val){
   if(defenseDebounce) clearTimeout(defenseDebounce);
   defenseDebounce = setTimeout(()=>send({type:'defense', text:val}), 300);
 }
-
-function nominationThresholdClient(st){ return Math.floor(st.players.filter(p=>p.alive).length/2)+1; }
 
 function targetGrid(st, myId, allowSelf, isNomination, excludeNames){
   const ex = new Set(excludeNames||[]);
