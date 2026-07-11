@@ -465,7 +465,7 @@ function startGame(){
     emergencyUsesLeft: 1,
     meeting: null,
     lastTime: 0,
-    camera:{x:0,y:0},
+    camera:{x:0,y:0,zoom:computeZoom()},
     ended:false
   };
 
@@ -1077,54 +1077,64 @@ const ctx = canvas.getContext('2d');
 const minimap = document.getElementById('minimap');
 const mctx = minimap.getContext('2d');
 
+const BASE_VIEW_WIDTH = 820; // world px width kept visible regardless of screen size
+const MIN_ZOOM = 0.65, MAX_ZOOM = 1.25;
+function computeZoom(){
+  return Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, canvas.width / BASE_VIEW_WIDTH));
+}
+
 function resizeCanvas(){
-  const wrap = document.getElementById('canvasWrap');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
+  if(state) state.camera.zoom = computeZoom();
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
 
+const TOP_HUD_CLEARANCE_PX = 150; // keeps top-row rooms from tucking under the minimap HUD
+
 function updateCamera(){
   const m = me();
-  let cx = m.x - canvas.width/2;
-  let cy = m.y - canvas.height/2;
-  cx = Math.max(0, Math.min(WORLD_W - canvas.width, cx));
-  cy = Math.max(0, Math.min(WORLD_H - canvas.height, cy));
-  if(WORLD_W < canvas.width) cx = -(canvas.width-WORLD_W)/2;
-  if(WORLD_H < canvas.height) cy = -(canvas.height-WORLD_H)/2;
+  const zoom = state.camera.zoom;
+  const viewW = canvas.width / zoom;
+  const viewH = canvas.height / zoom;
+  let cx = m.x - viewW/2;
+  let cy = m.y - viewH/2;
+  const topSlack = TOP_HUD_CLEARANCE_PX / zoom;
+  cx = Math.max(0, Math.min(WORLD_W - viewW, cx));
+  cy = Math.max(-topSlack, Math.min(WORLD_H - viewH, cy));
+  if(WORLD_W < viewW) cx = -(viewW-WORLD_W)/2;
+  if(WORLD_H + topSlack < viewH) cy = -topSlack - (viewH-WORLD_H-topSlack)/2;
   state.camera.x = cx; state.camera.y = cy;
 }
 
-function drawBean(cx0, x, y, color, name, alive, isDead){
-  const x2 = x - state.camera.x, y2 = y - state.camera.y;
+function drawBean(x, y, color, name, isSelf){
   ctx.save();
-  if(isDead){
-    ctx.globalAlpha = 0.9;
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.ellipse(x2, y2+6, 16, 8, 0, 0, Math.PI*2); ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.4)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(x2-10,y2-4); ctx.lineTo(x2+10,y2-4); ctx.stroke();
-    ctx.restore();
-    return;
+  if(isSelf){
+    const pulse = 3 + Math.sin(performance.now()/220)*2;
+    ctx.strokeStyle = 'rgba(255,207,64,0.9)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y, 22+pulse, 26+pulse, 0, 0, Math.PI*2);
+    ctx.stroke();
   }
   ctx.fillStyle = color;
   ctx.beginPath();
-  ctx.ellipse(x2, y2, 15, 19, 0, 0, Math.PI*2);
+  ctx.ellipse(x, y, 15, 19, 0, 0, Math.PI*2);
   ctx.fill();
   // visor
   ctx.fillStyle = '#9fe8ff';
   ctx.beginPath();
-  ctx.ellipse(x2+5, y2-6, 9, 6, 0, 0, Math.PI*2);
+  ctx.ellipse(x+5, y-6, 9, 6, 0, 0, Math.PI*2);
   ctx.fill();
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.ellipse(x2, y2, 15, 19, 0, 0, Math.PI*2); ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(x, y, 15, 19, 0, 0, Math.PI*2); ctx.stroke();
   // name
-  ctx.fillStyle = '#fff';
-  ctx.font = '12px Trebuchet MS';
+  ctx.fillStyle = isSelf ? '#ffcf40' : '#fff';
+  ctx.font = isSelf ? 'bold 12px Trebuchet MS' : '12px Trebuchet MS';
   ctx.textAlign = 'center';
-  ctx.fillText(name, x2, y2-28);
+  ctx.fillText(name, x, y-30);
   ctx.restore();
 }
 
@@ -1132,6 +1142,7 @@ function render(){
   ctx.fillStyle = '#05060a';
   ctx.fillRect(0,0,canvas.width, canvas.height);
   ctx.save();
+  ctx.scale(state.camera.zoom, state.camera.zoom);
   ctx.translate(-state.camera.x, -state.camera.y);
 
   // hallways
@@ -1178,10 +1189,9 @@ function render(){
     ctx.restore();
   });
 
-  // players (dead first, alive after so alive render on top)
-  state.entities.filter(e=>!e.alive).forEach(e=>{});
+  // players
   state.entities.forEach(e=>{
-    if(e.alive) drawBean(0, e.x, e.y, e.color, e.name + (e.id===0?' (You)':''), true, false);
+    if(e.alive) drawBean(e.x, e.y, e.color, e.name + (e.id===0?' (You)':''), e.id===0);
   });
 
   ctx.restore();
