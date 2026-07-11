@@ -52,6 +52,13 @@ button.small{ width:auto; padding:8px 14px; font-size:.8em; margin:4px; }
 }
 .playerChip.dead{ opacity:.45; text-decoration:line-through; }
 .playerChip .dot{ width:8px; height:8px; border-radius:50%; background:var(--green); flex-shrink:0; }
+.playerChip{ justify-content:space-between; }
+.playerChip .botTag{ color:var(--purple); font-size:.78em; margin-left:4px; }
+.playerChip .removeBotBtn{
+  width:auto; margin:0; padding:2px 8px; font-size:.75em; background:transparent; color:var(--dim);
+  border:1px solid var(--border);
+}
+.playerChip .removeBotBtn:hover{ color:var(--blood2); border-color:var(--blood2); }
 .errMsg{ color:var(--blood2); font-size:.8em; text-align:center; min-height:18px; margin-top:6px; }
 
 /* ── Role reveal ── */
@@ -146,6 +153,7 @@ button.small{ width:auto; padding:8px 14px; font-size:.8em; margin:4px; }
     </div>
     <div id="lobbyPlayers"></div>
     <div class="sub" id="lobbyHint"></div>
+    <button id="addBotBtn" class="ghost" onclick="hostAddBot()" style="display:none">+ Add CPU Player</button>
     <button id="startBtn" onclick="hostTryStart()" style="display:none">Start Game</button>
     <button class="ghost" onclick="location.reload()">Leave</button>
   </div>
@@ -232,7 +240,10 @@ function shuffle(arr){
 }
 
 const MIN_PLAYERS = 5;
+const MAX_PLAYERS = 15;
 const NIGHT_MS = 35000, DAY_MS = 75000, DEFENSE_MS = 20000, VERDICT_MS = 20000, INTERMISSION_MS = 6000;
+const BOT_NAMES = ['Nova','Rex','Vex','Luna','Axel','Ivy','Milo','Zara','Finch','Remy','Sable','Juno','Orion','Wren','Dash','Piper'];
+function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 
 // ══════════════════════════════════════════════════════════════════════════
 // NETWORK
@@ -301,7 +312,7 @@ function showScreen(id){
 // ══════════════════════════════════════════════════════════════════════════
 // HOST-AUTHORITATIVE GAME STATE
 // ══════════════════════════════════════════════════════════════════════════
-function mkPlayer(id,name){ return { id, name, alive:true, role:null, mayorRevealed:false, connected:true }; }
+function mkPlayer(id,name,isBot){ return { id, name, alive:true, role:null, mayorRevealed:false, connected:true, isBot:!!isBot }; }
 
 const game = {
   phase:'lobby', // lobby, night, day, trial-defense, trial-verdict, results, gameover
@@ -318,8 +329,24 @@ const game = {
 };
 let hostTimerHandle=null;
 
+function hostAddBot(){
+  if(!isHost || game.phase!=='lobby') return;
+  if(game.players.length >= MAX_PLAYERS) return;
+  const usedNames = new Set(game.players.map(p=>p.name));
+  let name, tries=0;
+  do { name = 'Bot ' + randomChoice(BOT_NAMES); tries++; } while(usedNames.has(name) && tries<40);
+  const id = 'bot-' + Math.random().toString(36).slice(2,10);
+  game.players.push(mkPlayer(id, name, true));
+  hostBroadcastLobby();
+}
+function hostRemoveBot(id){
+  if(!isHost || game.phase!=='lobby') return;
+  game.players = game.players.filter(p=>!(p.id===id && p.isBot));
+  hostBroadcastLobby();
+}
+
 function hostBroadcastLobby(){
-  const payload = { type:'lobby', players: game.players.map(p=>({id:p.id,name:p.name})), code: myId?myId.slice(0,8).toUpperCase():'' };
+  const payload = { type:'lobby', players: game.players.map(p=>({id:p.id,name:p.name,isBot:p.isBot})), code: myId?myId.slice(0,8).toUpperCase():'' };
   connections.forEach(c=>{ try{c.send(payload);}catch(e){} });
   renderLobby(payload);
 }
@@ -383,6 +410,7 @@ function hostTryStart(){
 function hostStartNight(){
   game.phase='night'; game.day++; game.nightActions={};
   game.accused=null; game.defenseText=''; game.verdicts={}; game.nominations={};
+  hostScheduleBotNightActions();
   hostSetTimer(NIGHT_MS, hostResolveNight);
   hostBroadcastState();
 }
@@ -440,6 +468,7 @@ function hostResolveNight(){
 // ── DAY / NOMINATION ──
 function hostStartDay(){
   game.phase='day'; game.nominations={}; game.accused=null;
+  hostScheduleBotDayActions();
   hostSetTimer(DAY_MS, ()=>{ if(game.phase==='day') hostStartNight(); });
   hostBroadcastState();
 }
@@ -470,10 +499,96 @@ function hostOnMayorReveal(pid){
   hostBroadcastState();
 }
 
+// ── BOT AI ──
+const BOT_DEFENSE_LINES = [
+  "It wasn't me, I promise!", "Think about who's been quiet all game...",
+  "I've been helping the town, check my actions.", "This is a mistake, I'm innocent.",
+  "You really want to hang me over this?", "I have no reason to lie to you all.",
+];
+function hostScheduleBotNightActions(){
+  const bots = game.players.filter(p=>p.isBot && p.alive);
+  const phaseAtSchedule = game.phase;
+  bots.forEach(bot=>{
+    const delay = 3000 + Math.random()*Math.max(1000, NIGHT_MS-8000);
+    setTimeout(()=>{
+      if(game.phase!==phaseAtSchedule || !bot.alive) return;
+      let target=null;
+      if(bot.role==='Killer'){
+        const nonKillers = livingPlayers().filter(p=>p.role!=='Killer');
+        if(nonKillers.length) target = randomChoice(nonKillers).id;
+      } else if(bot.role==='Detective'){
+        const others = livingPlayers().filter(p=>p.id!==bot.id);
+        if(others.length) target = randomChoice(others).id;
+      } else if(bot.role==='Tavern Keeper'){
+        const candidates = livingPlayers();
+        if(candidates.length) target = randomChoice(candidates).id;
+      }
+      if(target) hostOnNightAction(bot.id, target);
+    }, delay);
+  });
+}
+function hostScheduleBotDayActions(){
+  const bots = game.players.filter(p=>p.isBot && p.alive);
+  const phaseAtSchedule = game.phase;
+  bots.forEach(bot=>{
+    if(bot.role==='Mayor' && !bot.mayorRevealed && game.day>=2 && Math.random()<0.25){
+      setTimeout(()=>{
+        if(game.phase!==phaseAtSchedule || !bot.alive) return;
+        hostOnMayorReveal(bot.id);
+      }, 2000+Math.random()*5000);
+    }
+    if(Math.random()<0.35) return; // some bots sit a day out
+    const delay = 5000 + Math.random()*Math.max(2000, DAY_MS-12000);
+    setTimeout(()=>{
+      if(game.phase!==phaseAtSchedule || !bot.alive) return;
+      const candidates = livingPlayers().filter(p=>p.id!==bot.id && !(bot.role==='Killer' && p.role==='Killer'));
+      if(!candidates.length) return;
+      let target=null;
+      const nominatedIds = Object.keys(tallyNominations());
+      if(nominatedIds.length && Math.random()<0.5){
+        const t = findPlayer(randomChoice(nominatedIds));
+        if(t && t.alive && t.id!==bot.id) target = t;
+      }
+      if(!target) target = randomChoice(candidates);
+      hostOnNominate(bot.id, target.id);
+    }, delay);
+  });
+}
+function hostScheduleBotDefense(){
+  const accused = findPlayer(game.accused);
+  if(!accused || !accused.isBot) return;
+  const accusedId = accused.id, phaseAtSchedule = game.phase;
+  const delay = 2000 + Math.random()*Math.max(1000, DEFENSE_MS-5000);
+  setTimeout(()=>{
+    if(game.phase!==phaseAtSchedule || game.accused!==accusedId) return;
+    hostOnDefense(accusedId, randomChoice(BOT_DEFENSE_LINES));
+  }, delay);
+}
+function hostScheduleBotVerdicts(){
+  const accused = findPlayer(game.accused);
+  const bots = game.players.filter(p=>p.isBot && p.alive && p.id!==game.accused);
+  const phaseAtSchedule = game.phase;
+  bots.forEach(bot=>{
+    const delay = 2000 + Math.random()*Math.max(1000, VERDICT_MS-5000);
+    setTimeout(()=>{
+      if(game.phase!==phaseAtSchedule) return;
+      let vote;
+      if(bot.role==='Killer' && accused && accused.role==='Killer'){
+        vote = 'innocent';
+      } else {
+        const r = Math.random();
+        vote = r<0.5 ? 'guilty' : (r<0.85 ? 'innocent' : 'abstain');
+      }
+      hostOnVerdict(bot.id, vote);
+    }, delay);
+  });
+}
+
 // ── TRIAL ──
 function hostStartTrial(accusedId){
   game.phase='trial-defense'; game.accused=accusedId; game.defenseText='';
   hostChatSystem(`⚖️ ${findPlayer(accusedId).name} has been put on trial!`);
+  hostScheduleBotDefense();
   hostSetTimer(DEFENSE_MS, hostStartVerdict);
   hostBroadcastState();
 }
@@ -484,6 +599,7 @@ function hostOnDefense(pid, text){
 }
 function hostStartVerdict(){
   game.phase='trial-verdict'; game.verdicts={};
+  hostScheduleBotVerdicts();
   hostSetTimer(VERDICT_MS, hostResolveVerdict);
   hostBroadcastState();
 }
@@ -605,12 +721,21 @@ function clientReceive(data){
 
 function renderLobby(data){
   const list = document.getElementById('lobbyPlayers');
-  list.innerHTML = data.players.map(p=>`<div class="playerChip"><span class="dot"></span>${escapeHtml(p.name)}${p.id===myId?' (you)':''}</div>`).join('');
+  list.innerHTML = data.players.map(p=>{
+    const left = `<span class="dot"></span>${escapeHtml(p.name)}${p.isBot?' <span class="botTag">CPU</span>':''}${p.id===myId?' (you)':''}`;
+    const removeBtn = (isHost && p.isBot) ? `<button class="removeBotBtn" onclick="hostRemoveBot('${p.id}')">remove</button>` : '';
+    return `<div class="playerChip"><span>${left}</span>${removeBtn}</div>`;
+  }).join('');
   document.getElementById('lobbyHint').textContent = data.players.length < MIN_PLAYERS
-    ? `Waiting for players… need at least ${MIN_PLAYERS} (have ${data.players.length}).`
+    ? `Waiting for players… need at least ${MIN_PLAYERS} (have ${data.players.length}). Add CPU players to fill the lobby.`
     : `${data.players.length} players ready. 3 Killers unlock at 10 players.`;
-  if(!isHost) document.getElementById('startBtn').style.display='none';
-  else document.getElementById('startBtn').disabled = data.players.length < MIN_PLAYERS;
+  if(!isHost){
+    document.getElementById('startBtn').style.display='none';
+    document.getElementById('addBotBtn').style.display='none';
+  } else {
+    document.getElementById('startBtn').disabled = data.players.length < MIN_PLAYERS;
+    document.getElementById('addBotBtn').style.display = data.players.length < MAX_PLAYERS ? 'block' : 'none';
+  }
 }
 
 function renderRole(){
@@ -708,7 +833,7 @@ function renderCenter(st){
     if(!myAlive){ html += `<div class="center-sub">You are among the dead. Watch in silence.</div>`; c.innerHTML=html; return; }
     if(myRole==='Killer'){
       html += `<div class="center-sub">Choose a victim with your fellow Killers. Majority target dies (ties broken randomly).</div>`;
-      html += targetGrid(st, myId, false);
+      html += targetGrid(st, myId, false, false, myTeammates);
     } else if(myRole==='Detective'){
       html += `<div class="center-sub">Choose someone to investigate. You'll learn if they're a Killer.</div>`;
       html += targetGrid(st, myId, false);
@@ -789,8 +914,9 @@ function uiDefenseInput(val){
 
 function nominationThresholdClient(st){ return Math.floor(st.players.filter(p=>p.alive).length/2)+1; }
 
-function targetGrid(st, myId, allowSelf, isNomination){
-  const living = st.players.filter(p=>p.alive && (allowSelf || p.id!==myId));
+function targetGrid(st, myId, allowSelf, isNomination, excludeNames){
+  const ex = new Set(excludeNames||[]);
+  const living = st.players.filter(p=>p.alive && (allowSelf || p.id!==myId) && !ex.has(p.name));
   const nomTally = st.nominations || {};
   return `<div class="targetGrid">` + living.map(p=>{
     const count = isNomination ? (nomTally[p.id]||0) : 0;
