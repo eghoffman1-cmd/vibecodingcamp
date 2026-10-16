@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Clash of Olympus</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus+SC&family=Alegreya+Sans:wght@400;500;700;800&display=swap">
+<style>
+/* Layout: black-figure pottery. Night-black ground, terracotta panels with
+   black "figures" on them, a Greek-key band framing every screen. */
+:root {
+  --night: #14100c;
+  --night-2: #1f1912;
+  --clay: #c4632c;
+  --clay-hi: #dc8148;
+  --clay-deep: #8a3c17;
+  --ink: #1a120c;
+  --bone: #f1e3c6;
+  --bone-dim: #b8a385;
+  --gold: #e6b84f;
+  --good: #7fc46a;
+  --bad: #e2533e;
+  --font-display: "Marcellus SC", "Trajan Pro", Georgia, serif;
+  --font-body: "Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif;
+  --key: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='14' viewBox='0 0 28 14'%3E%3Cpath d='M0 12.5H26V1.5H8V9H19V5H14' fill='none' stroke='%23c4632c' stroke-width='2.2'/%3E%3C/svg%3E");
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: radial-gradient(ellipse at 50% -10%, #2a2016 0%, var(--night) 60%) fixed, var(--night);
+  color: var(--bone);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+[hidden] { display: none !important; }
+
+.wrap { max-width: 1080px; margin: 0 auto; padding-block: 14px 40px; }
+
+/* ---------- header ---------- */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px;
+  padding-bottom: 14px;
+  border-bottom: 14px solid transparent;
+  border-image: var(--key) 0 0 14 0 / 0 0 14px 0 repeat;
+  margin-bottom: 20px;
+}
+.brand { font-family: var(--font-display); font-size: 1.5rem; letter-spacing: .06em; color: var(--gold); background: none; border: 0; padding: 0; }
+.brand small { display: block; font-family: var(--font-body); font-size: .72rem; letter-spacing: .18em; color: var(--bone-dim); text-transform: uppercase; }
+nav { display: flex; gap: 6px; flex-wrap: wrap; }
+.navbtn {
+  background: transparent; border: 1px solid #4a3a2a; color: var(--bone-dim);
+  padding: 7px 14px; border-radius: 999px; font-weight: 700; font-size: .9rem; letter-spacing: .04em;
+}
+.navbtn[aria-current="page"] { background: var(--clay); color: var(--ink); border-color: var(--clay); }
+
+/* ---------- shared bits ---------- */
+h1, h2, h3 { font-family: var(--font-display); font-weight: 400; text-wrap: balance; margin: 0; }
+h2 { font-size: 1.6rem; color: var(--gold); letter-spacing: .03em; }
+h3 { font-size: 1.15rem; letter-spacing: .03em; }
+.eyebrow { font-size: .74rem; letter-spacing: .2em; text-transform: uppercase; color: var(--bone-dim); font-weight: 700; }
+.btn {
+  border: 0; border-radius: 6px; padding: 10px 18px; font-weight: 800; letter-spacing: .05em;
+  background: var(--clay); color: var(--ink); box-shadow: inset 0 -3px 0 var(--clay-deep);
+  text-transform: uppercase; font-size: .88rem;
+}
+.btn:hover { background: var(--clay-hi); }
+.btn.gold { background: var(--gold); box-shadow: inset 0 -3px 0 #a07a22; }
+.btn.ghost { background: transparent; color: var(--bone); border: 1px solid #5a4733; box-shadow: none; }
+.btn.ghost:hover { border-color: var(--clay); }
+.btn.danger { background: transparent; color: var(--bad); border: 1px solid var(--bad); box-shadow: none; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.muted { color: var(--bone-dim); }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700; background: color-mix(in srgb, var(--c, var(--clay)) 22%, transparent);
+  color: color-mix(in srgb, var(--c, var(--clay)) 70%, var(--bone)); border: 1px solid color-mix(in srgb, var(--c, var(--clay)) 50%, transparent);
+  white-space: nowrap;
+}
+
+/* god medallion */
+.medal {
+  --s: 64px; --c: var(--clay);
+  width: var(--s); height: var(--s); flex: none; border-radius: 50%;
+  display: grid; place-items: center; font-size: calc(var(--s) * .46); line-height: 1;
+  background: radial-gradient(circle at 34% 28%, color-mix(in srgb, var(--c) 55%, #fff) 0%, var(--c) 42%, color-mix(in srgb, var(--c) 35%, #000) 100%);
+  box-shadow: 0 0 0 3px var(--ink), 0 0 0 6px var(--clay), 0 0 0 8px var(--ink), 0 8px 20px rgba(0,0,0,.55);
+  position: relative;
+}
+
+/* ---------- home ---------- */
+.hero { display: grid; gap: 14px; padding: 10px 0 26px; }
+.hero h1 { font-size: clamp(2.4rem, 8vw, 4.6rem); line-height: 1; color: var(--bone); letter-spacing: .02em; }
+.hero h1 span { color: var(--clay); }
+.hero p { max-width: 60ch; margin: 0; color: var(--bone-dim); font-size: 1.08rem; }
+.pantheon { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 8px; }
+.godcard {
+  background: var(--clay); color: var(--ink); border: 0; border-radius: 8px; padding: 16px 12px 12px;
+  display: grid; justify-items: center; gap: 8px; text-align: center; position: relative;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--clay), inset 0 0 0 5px var(--ink);
+  transition: transform .15s;
+}
+.godcard:hover { transform: translateY(-3px); }
+.godcard .medal { --s: 58px; }
+.godcard b { font-family: var(--font-display); font-weight: 400; font-size: 1.15rem; }
+.godcard .sub { font-size: .76rem; line-height: 1.2; opacity: .8; }
+.godcard .count { position: absolute; top: 8px; right: 8px; font-size: .7rem; font-weight: 800; background: var(--ink); color: var(--bone); border-radius: 999px; padding: 1px 7px; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 30px; }
+.rules section { border-top: 2px solid var(--clay); padding-top: 10px; }
+.rules h3 { color: var(--gold); margin-bottom: 6px; }
+.rules p, .rules ul { margin: 0; color: var(--bone-dim); font-size: .95rem; }
+.rules ul { padding-left: 18px; }
+.matchups { display: grid; grid-template-columns: 1fr; gap: 3px; font-size: .88rem; }
+
+/* ---------- forge ---------- */
+.godtabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 12px; scrollbar-width: thin; }
+.godtab {
+  flex: none; display: flex; align-items: center; gap: 8px; background: var(--night-2); border: 1px solid #3c2f22;
+  border-radius: 999px; padding: 4px 12px 4px 4px; font-weight: 700; font-size: .9rem;
+}
+.godtab .medal { --s: 30px; box-shadow: 0 0 0 2px var(--ink); }
+.godtab[aria-pressed="true"] { background: var(--clay); color: var(--ink); border-color: var(--clay); }
+.godtab .n { font-size: .72rem; opacity: .75; }
+.forge { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 22px; align-items: start; }
+@media (max-width: 820px) { .forge { grid-template-columns: minmax(0, 1fr); } }
+.godpanel {
+  background: var(--clay); color: var(--ink); border-radius: 10px; padding: 18px;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 5px var(--clay), inset 0 0 0 6px var(--ink);
+  display: grid; gap: 14px;
+}
+.godhead { display: flex; gap: 18px; align-items: center; }
+.godhead .medal { --s: 84px; }
+.godhead h2 { color: var(--ink); font-size: 1.9rem; }
+.godhead .chip { --c: var(--ink); background: var(--ink); color: var(--bone); border-color: var(--ink); }
+.stats { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center; font-size: .85rem; font-weight: 700; }
+.stats .bar { height: 8px; background: rgba(26,18,12,.25); border-radius: 4px; overflow: hidden; }
+.stats .bar i { display: block; height: 100%; background: var(--ink); }
+.stats .v { font-variant-numeric: tabular-nums; }
+.matchline { font-size: .86rem; display: grid; gap: 2px; }
+.slots { display: grid; gap: 10px; }
+.slot {
+  background: var(--night-2); color: var(--bone); border: 1px dashed #5a4733; border-radius: 8px; padding: 12px;
+  display: flex; gap: 12px; align-items: center; text-align: left; width: 100%;
+}
+.slot.filled { border-style: solid; border-color: #4a3a2a; }
+.slot.active { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); }
+.slot .ic { font-size: 1.7rem; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 8px; background: color-mix(in srgb, var(--c, var(--clay)) 25%, var(--night)); flex: none; }
+.slot .t { min-width: 0; flex: 1; }
+.slot .t b { display: block; font-size: 1.02rem; }
+.slot .t span { font-size: .8rem; color: var(--bone-dim); }
+.slot .plus { color: var(--gold); font-weight: 800; letter-spacing: .05em; text-transform: uppercase; font-size: .85rem; }
+
+.editor { background: var(--night-2); border: 1px solid #3c2f22; border-radius: 10px; padding: 18px; display: grid; gap: 16px; }
+.editor-empty { color: var(--bone-dim); text-align: center; padding: 40px 16px; border: 1px dashed #3c2f22; border-radius: 10px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field > label, .field > .lbl { font-size: .75rem; letter-spacing: .14em; text-transform: uppercase; font-weight: 800; color: var(--bone-dim); display: flex; justify-content: space-between; gap: 8px; }
+.field > label output, .field > .lbl output { color: var(--gold); letter-spacing: .04em; font-variant-numeric: tabular-nums; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .two { grid-template-columns: 1fr; } }
+input[type="text"], select, textarea {
+  background: var(--night); border: 1px solid #4a3a2a; border-radius: 6px; padding: 9px 10px; width: 100%;
+}
+textarea { resize: vertical; min-height: 54px; }
+input[type="range"] { width: 100%; accent-color: var(--clay); }
+.icons { display: flex; flex-wrap: wrap; gap: 4px; }
+.icons button { width: 36px; height: 36px; border-radius: 6px; border: 1px solid #3c2f22; background: var(--night); font-size: 1.15rem; padding: 0; }
+.icons button[aria-pressed="true"] { border-color: var(--gold); background: #3a2a18; }
+.icons input { width: 64px; text-align: center; font-size: 1.1rem; }
+.kinds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.kinds button { background: var(--night); border: 1px solid #4a3a2a; border-radius: 6px; padding: 8px 6px; font-weight: 800; font-size: .88rem; }
+.kinds button[aria-pressed="true"] { background: var(--clay); color: var(--ink); border-color: var(--clay); }
+.hint { font-size: .85rem; color: var(--bone-dim); margin: 0; }
+.check { display: flex; gap: 10px; align-items: flex-start; font-size: .92rem; }
+.check input { margin-top: 4px; accent-color: var(--clay); }
+
+.cost { display: grid; gap: 6px; }
+.cost .meter { height: 12px; background: var(--night); border-radius: 6px; overflow: hidden; border: 1px solid #3c2f22; position: relative; }
+.cost .meter i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--clay)); transition: width .2s; }
+.cost .meter.over i { background: var(--bad); }
+.cost .lbl b { font-variant-numeric: tabular-nums; }
+.cost.over .lbl output { color: var(--bad); }
+.preview { display: grid; gap: 6px; }
+
+/* move button, used in battle and as forge preview */
+.mv {
+  --c: var(--clay);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; align-items: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c) 16%, var(--night-2)), var(--night-2));
+  border: 1px solid color-mix(in srgb, var(--c) 55%, #000); border-left: 5px solid var(--c);
+  border-radius: 8px; padding: 9px 10px; text-align: left; width: 100%; min-width: 0;
+}
+.mv:not(:disabled):hover { background: color-mix(in srgb, var(--c) 26%, var(--night-2)); }
+.mv .ic { grid-row: span 3; font-size: 1.8rem; width: 40px; text-align: center; }
+.mv b { font-size: 1rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv .meta { font-size: .76rem; color: var(--bone-dim); display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-variant-numeric: tabular-nums; }
+.mv .desc { font-size: .78rem; color: var(--bone-dim); font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mv:disabled { opacity: .4; cursor: not-allowed; }
+.share { margin-top: 26px; display: grid; gap: 10px; border-top: 2px solid #3c2f22; padding-top: 16px; }
+.share textarea { font-family: ui-monospace, Menlo, monospace; font-size: .78rem; min-height: 70px; }
+
+/* ---------- setup ---------- */
+.pickgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+.pick {
+  background: var(--night-2); border: 2px solid #3c2f22; border-radius: 8px; padding: 12px 8px;
+  display: grid; justify-items: center; gap: 6px; font-weight: 700; text-align: center;
+}
+.pick .medal { --s: 46px; }
+.pick small { font-size: .72rem; color: var(--bone-dim); font-weight: 500; }
+.pick[aria-pressed="true"] { border-color: var(--gold); background: #2c2115; }
+.pick.climb { border-style: dashed; }
+.setup { display: grid; gap: 26px; }
+.setup .note { color: var(--gold); font-size: .92rem; min-height: 1.3em; margin: 0; }
+
+/* ---------- battle ---------- */
+.battle { display: grid; gap: 12px; }
+.ladder { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: .8rem; color: var(--bone-dim); }
+.ladder .dot { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--night-2); border: 1px solid #3c2f22; font-size: .85rem; }
+.ladder .dot.done { background: var(--clay); border-color: var(--clay); }
+.ladder .dot.now { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold); }
+.arena {
+  position: relative; height: clamp(300px, 52vw, 400px); border-radius: 12px; overflow: hidden;
+  background:
+    radial-gradient(ellipse 30% 10% at 74% 46%, rgba(196,99,44,.55), transparent 70%),
+    radial-gradient(ellipse 34% 11% at 25% 86%, rgba(196,99,44,.55), transparent 70%),
+    radial-gradient(circle at 80% 15%, #3a3022 0, transparent 30%),
+    linear-gradient(180deg, #0f0c14 0%, #231a12 70%, #2f2116 100%);
+  border: 1px solid #3c2f22;
+}
+.arena::before {
+  content: ""; position: absolute; inset: 0;
+  background-image: radial-gradient(1px 1px at 12% 20%, #fff8, transparent), radial-gradient(1px 1px at 30% 8%, #fff6, transparent),
+    radial-gradient(1.5px 1.5px at 52% 26%, #fff7, transparent), radial-gradient(1px 1px at 66% 12%, #fff5, transparent),
+    radial-gradient(1px 1px at 88% 30%, #fff6, transparent), radial-gradient(1px 1px at 42% 40%, #fff4, transparent);
+  pointer-events: none;
+}
+.fighter { position: absolute; display: flex; align-items: center; gap: 14px; }
+.fighter.foe { top: 6%; right: 5%; flex-direction: row; }
+.fighter.me { bottom: 7%; left: 5%; flex-direction: row-reverse; }
+.fighter .medal { --s: clamp(78px, 15vw, 120px); }
+.plate {
+  background: var(--clay); color: var(--ink); border-radius: 8px; padding: 8px 12px; min-width: 0; width: clamp(150px, 30vw, 250px);
+  box-shadow: inset 0 0 0 2px var(--ink), 0 6px 14px rgba(0,0,0,.4);
+}
+.plate .nm { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.plate .nm b { font-family: var(--font-display); font-weight: 400; font-size: 1.12rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.plate .nm span { font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+.hpbar { height: 10px; background: var(--ink); border-radius: 5px; overflow: hidden; margin-top: 5px; }
+.hpbar i { display: block; height: 100%; width: 100%; background: var(--good); transition: width .45s ease, background .3s; }
+.hpnum { font-size: .78rem; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px; display: flex; justify-content: space-between; gap: 6px; }
+.status { display: flex; gap: 3px; flex-wrap: wrap; min-height: 20px; margin-top: 3px; }
+.status .st { background: var(--ink); color: var(--bone); border-radius: 4px; padding: 0 5px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.medal .bubble { position: absolute; inset: -12px; border-radius: 50%; border: 3px solid #9fd8ff; box-shadow: 0 0 18px #9fd8ffaa, inset 0 0 18px #9fd8ff66; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.medal.shielded .bubble { opacity: 1; }
+.proj { position: absolute; left: 0; top: 0; font-size: 2.4rem; pointer-events: none; filter: drop-shadow(0 0 10px var(--glow)) drop-shadow(0 0 4px var(--glow)); z-index: 5; }
+.spark { position: absolute; left: 0; top: 0; width: 8px; height: 8px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 8px var(--glow); pointer-events: none; z-index: 5; }
+.float { position: absolute; left: 0; top: 0; font-weight: 800; font-size: 1.6rem; pointer-events: none; z-index: 6; text-shadow: 0 2px 0 #000, 0 0 8px #000; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.log {
+  background: var(--bone); color: var(--ink); border-radius: 8px; padding: 10px 14px; min-height: 4.6em;
+  font-size: .98rem; display: grid; align-content: end; gap: 1px;
+  box-shadow: inset 0 0 0 2px var(--ink), inset 0 0 0 4px var(--bone), inset 0 0 0 5px var(--ink);
+}
+.log p { margin: 0; opacity: .5; }
+.log p:last-child { opacity: 1; font-weight: 700; }
+.moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.plate .chip { background: var(--ink); color: var(--bone); border-color: var(--ink); }
+.hpv { white-space: nowrap; }
+@media (max-width: 520px) {
+  .moves { grid-template-columns: minmax(0, 1fr); }
+  .fighter .plate { width: 150px; }
+  .plate .chip { display: none; }
+  .arena { height: 330px; }
+}
+.result {
+  position: absolute; inset: 0; background: rgba(12,9,6,.84); display: grid; place-content: center; justify-items: center;
+  gap: 12px; text-align: center; padding: 16px; z-index: 10;
+}
+.result h2 { font-size: clamp(2rem, 7vw, 3.2rem); }
+.result p { margin: 0; color: var(--bone-dim); max-width: 40ch; }
+.battlebar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <button class="brand" id="brand" type="button">Clash of Olympus<small>Forge the moves. Fight the gods.</small></button>
+    <nav>
+      <button class="navbtn" data-go="home" type="button">Pantheon</button>
+      <button class="navbtn" data-go="forge" type="button">Move Forge</button>
+      <button class="navbtn" data-go="setup" type="button">Battle</button>
+    </nav>
+  </header>
+
+  <!-- HOME -->
+  <section id="scr-home">
+    <div class="hero">
+      <span class="eyebrow">Ten gods · four move slots each · you write every move</span>
+      <h1>Clash of <span>Olympus</span></h1>
+      <p>Design the moves for Zeus, Poseidon, Hades and the rest of the pantheon in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
+      <div class="row">
+        <button class="btn gold" type="button" data-go="forge">Forge moves</button>
+        <button class="btn ghost" type="button" data-go="setup">Battle</button>
+      </div>
+    </div>
+    <div class="pantheon" id="pantheon"></div>
+    <div class="rules">
+      <section>
+        <h3>Designing moves</h3>
+        <ul>
+          <li>Each god holds up to 4 moves.</li>
+          <li>A move can cost at most 100 divine power. Strong, accurate, many-use moves cost more.</li>
+          <li>Moves that share their god's element hit 20% harder.</li>
+          <li>Turn on Titan mode in the Forge to remove the limit.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Move types</h3>
+        <ul>
+          <li><b>Strike</b> deals damage. <b>Drain</b> deals damage and heals half.</li>
+          <li><b>Curse</b> only inflicts Burn, Stun, Weaken or Blind.</li>
+          <li><b>Heal</b>, <b>Shield</b> and <b>Rally</b> (attack boost) target yourself.</li>
+          <li><b>Swift</b> moves always go first.</li>
+        </ul>
+      </section>
+      <section>
+        <h3>Elements</h3>
+        <p style="margin-bottom:6px">Super effective hits do 1.6×, resisted hits 0.6×.</p>
+        <div class="matchups" id="matchups"></div>
+      </section>
+    </div>
+  </section>
+
+  <!-- FORGE -->
+  <section id="scr-forge" hidden>
+    <div class="godtabs" id="godtabs" role="toolbar" aria-label="Choose a god"></div>
+    <div class="forge">
+      <div class="godpanel" id="godpanel"></div>
+      <div id="editorwrap"></div>
+    </div>
+    <div class="share">
+      <div class="row" style="justify-content:space-between">
+        <h3>Titan mode &amp; sharing</h3>
+        <label class="check" for="titan"><input type="checkbox" id="titan"> <span>Titan mode: no power limit on moves</span></label>
+      </div>
+      <p class="hint">Copy the code below to save your moves or share them with a friend. Paste a code and press Load to bring moves in.</p>
+      <textarea id="sharecode" aria-label="Move code" spellcheck="false"></textarea>
+      <div class="row">
+        <button class="btn ghost" type="button" id="copycode">Copy code</button>
+        <button class="btn ghost" type="button" id="loadcode">Load code</button>
+        <span class="muted" id="sharemsg" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- SETUP -->
+  <section id="scr-setup" hidden>
+    <div class="setup">
+      <div>
+        <span class="eyebrow">Step 1</span>
+        <h2>Choose your champion</h2>
+        <p class="hint" style="margin:4px 0 12px">Your champion fights with the moves you forged for them.</p>
+        <div class="pickgrid" id="pickme"></div>
+      </div>
+      <div>
+        <span class="eyebrow">Step 2</span>
+        <h2>Choose your opponent</h2>
+        <p class="hint" style="margin:4px 0 12px">Opponents use the moves you forged for them. A god with no forged moves fights with a starter set.</p>
+        <div class="pickgrid" id="pickfoe"></div>
+      </div>
+      <div class="row">
+        <button class="btn gold" type="button" id="startbtn">Begin battle</button>
+        <p class="note" id="setupnote" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- BATTLE -->
+  <section id="scr-battle" hidden>
+    <div class="battle">
+      <div class="battlebar">
+        <div class="ladder" id="ladder"></div>
+        <button class="btn ghost" type="button" id="fleebtn">Leave battle</button>
+      </div>
+      <div class="arena" id="arena">
+        <div class="fighter foe" id="f-e"></div>
+        <div class="fighter me" id="f-p"></div>
+        <div class="result" id="result" hidden></div>
+      </div>
+      <div class="log" id="log" aria-live="polite"></div>
+      <div class="moves" id="moves"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= DATA ================= */
+const ELEMENTS = {
+  sky:        { name: 'Sky',        color: '#f2c94c', icon: '⚡', strong: ['sea', 'war'] },
+  sea:        { name: 'Sea',        color: '#3aa6d0', icon: '🌊', strong: ['forge', 'sun'] },
+  underworld: { name: 'Underworld', color: '#9b6bd1', icon: '💀', strong: ['war', 'love'] },
+  sun:        { name: 'Sun',        color: '#f39c34', icon: '☀️', strong: ['underworld', 'moon'] },
+  wisdom:     { name: 'Wisdom',     color: '#a9bccb', icon: '🦉', strong: ['underworld', 'wind'] },
+  war:        { name: 'War',        color: '#e0503f', icon: '⚔️', strong: ['love', 'moon'] },
+  moon:       { name: 'Moon',       color: '#c3cdf5', icon: '🌙', strong: ['wind', 'wisdom'] },
+  wind:       { name: 'Wind',       color: '#5fd3b0', icon: '💨', strong: ['forge', 'sky'] },
+  forge:      { name: 'Forge',      color: '#ff7a3d', icon: '🔨', strong: ['sky', 'wisdom'] },
+  love:       { name: 'Love',       color: '#f07aa6', icon: '🌹', strong: ['sea', 'sun'] },
+  divine:     { name: 'Divine',     color: '#e8dcc0', icon: '✨', strong: [] },
+};
+const weakTo = el => Object.keys(ELEMENTS).filter(k => ELEMENTS[k].strong.includes(el));
+
+const GODS = [
+  { id: 'zeus', name: 'Zeus', title: 'King of the Gods', el: 'sky', emoji: '⚡', hp: 110, atk: 115, def: 95, spd: 100,
+    starter: { name: 'Thunderbolt', icon: '⚡', kind: 'attack', element: 'sky', power: 80, acc: 85, uses: 6, effect: 'stun', chance: 20, priority: false, desc: 'The sky splits open.' } },
+  { id: 'poseidon', name: 'Poseidon', title: 'Lord of the Sea', el: 'sea', emoji: '🔱', hp: 120, atk: 110, def: 100, spd: 85,
+    starter: { name: 'Tidal Crash', icon: '🌊', kind: 'attack', element: 'sea', power: 75, acc: 90, uses: 6, effect: 'blind', chance: 30, priority: false, desc: 'A wall of salt water.' } },
+  { id: 'hades', name: 'Hades', title: 'Ruler of the Underworld', el: 'underworld', emoji: '💀', hp: 125, atk: 105, def: 110, spd: 75,
+    starter: { name: 'Soul Siphon', icon: '👻', kind: 'drain', element: 'underworld', power: 55, acc: 90, uses: 6, effect: 'none', chance: 0, priority: false, desc: 'Your life is mine now.' } },
+  { id: 'apollo', name: 'Apollo', title: 'God of the Sun and Music', el: 'sun', emoji: '☀️', hp: 100, atk: 105, def: 90, spd: 110,
+    starter: { name: 'Solar Arrow', icon: '🌞', kind: 'attack', element: 'sun', power: 70, acc: 95, uses: 6, effect: 'burn', chance: 30, priority: false, desc: 'Noon in a single shot.' } },
+  { id: 'athena', name: 'Athena', title: 'Goddess of Wisdom', el: 'wisdom', emoji: '🦉', hp: 105, atk: 95, def: 120, spd: 95,
+    starter: { name: 'Aegis', icon: '🛡️', kind: 'shield', element: 'wisdom', power: 70, acc: 100, uses: 5, effect: 'none', chance: 0, priority: false, desc: 'The shield of the gods.' } },
+  { id: 'ares', name: 'Ares', title: 'God of War', el: 'war', emoji: '⚔️', hp: 105, atk: 125, def: 85, spd: 100,
+    starter: { name: 'Battle Fury', icon: '😤', kind: 'rally', element: 'war', power: 60, acc: 100, uses: 3, effect: 'none', chance: 0, priority: false, desc: 'Blood boils, blades sharpen.' } },
+  { id: 'artemis', name: 'Artemis', title: 'Goddess of the Hunt', el: 'moon', emoji: '🏹', hp: 95, atk: 110, def: 85, spd: 120,
+    starter: { name: 'Moonlit Volley', icon: '🏹', kind: 'attack', element: 'moon', power: 60, acc: 100, uses: 8, effect: 'none', chance: 0, priority: true, desc: 'Silver arrows, never missing.' } },
+  { id: 'hermes', name: 'Hermes', title: 'Messenger of the Gods', el: 'wind', emoji: '🪶', hp: 90, atk: 100, def: 85, spd: 135,
+    starter: { name: 'Gale Dash', icon: '💨', kind: 'attack', element: 'wind', power: 55, acc: 100, uses: 8, effect: 'none', chance: 0, priority: true, desc: 'Gone before you blink.' } },
+  { id: 'hephaestus', name: 'Hephaestus', title: 'God of the Forge', el: 'forge', emoji: '🔨', hp: 120, atk: 110, def: 115, spd: 65,
+    starter: { name: 'Molten Hammer', icon: '🔥', kind: 'attack', element: 'forge', power: 90, acc: 80, uses: 5, effect: 'burn', chance: 20, priority: false, desc: 'Fresh from the anvil.' } },
+  { id: 'aphrodite', name: 'Aphrodite', title: 'Goddess of Love', el: 'love', emoji: '🌹', hp: 105, atk: 95, def: 95, spd: 110,
+    starter: { name: "Heart's Charm", icon: '💘', kind: 'curse', element: 'love', power: 0, acc: 90, uses: 4, effect: 'weaken', chance: 100, priority: false, desc: 'Who could fight someone so lovely?' } },
+];
+const GOD = Object.fromEntries(GODS.map(g => [g.id, g]));
+
+const KINDS = {
+  attack: { label: 'Strike', self: false, powerLabel: 'Power',           mult: 0.8, hint: 'Deals damage to the enemy.' },
+  drain:  { label: 'Drain',  self: false, powerLabel: 'Power',           mult: 1.1, hint: 'Deals damage and heals you for half of it.' },
+  curse:  { label: 'Curse',  self: false, powerLabel: null,              mult: 0,   hint: 'No damage. Always inflicts its effect if it hits.' },
+  heal:   { label: 'Heal',   self: true,  powerLabel: 'HP restored',     mult: 0.9, hint: 'Restores your HP. Never misses.' },
+  shield: { label: 'Shield', self: true,  powerLabel: 'Shield strength', mult: 0.7, hint: 'Blocks damage until the shield breaks. Never misses.' },
+  rally:  { label: 'Rally',  self: true,  powerLabel: 'Attack boost %',  mult: 0.7, hint: 'Raises your attack for the rest of the battle (max +100%).' },
+};
+const EFFECTS = {
+  none:   { label: 'None',   icon: '',   cost: 0,  hint: '' },
+  burn:   { label: 'Burn',   icon: '🔥', cost: 8,  hint: 'Loses 6% of max HP at the end of each turn, for 3 turns.' },
+  stun:   { label: 'Stun',   icon: '💫', cost: 14, hint: 'Loses their next action.' },
+  weaken: { label: 'Weaken', icon: '💔', cost: 8,  hint: 'Their attack drops 25% for 3 turns.' },
+  blind:  { label: 'Blind',  icon: '🌫️', cost: 8,  hint: 'Their accuracy drops by 30 for 3 turns.' },
+};
+const ICONS = ['⚡','🌩️','🔱','🌊','💀','👻','🔥','☀️','🌞','🦉','🛡️','⚔️','🗡️','🏹','🌙','💨','🌪️','🪶','🔨','🌋','🌹','💘','💖','🐍','🦅','🐺','🐂','🦁','🕸️','❄️','☄️','✨','💫','🌀','🍇','🪨','👁️','😤','🎵','🌿'];
+const BUDGET = 100;
+const MAX_MOVES = 4;
+const STRUGGLE = { name: 'Desperate Strike', icon: '👊', kind: 'attack', element: 'divine', power: 35, acc: 100, uses: Infinity, effect: 'none', chance: 0, priority: false, desc: 'Out of power, still swinging.' };
+
+/* ================= STORAGE ================= */
+const KEY = 'clash-of-olympus-v1';
+const store = { moves: {}, titan: false, lastMe: 'zeus', lastFoe: 'poseidon' };
+let uid = 0;
+const newId = () => 'm' + Date.now().toString(36) + (uid++).toString(36);
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+function cleanMove(m) {
+  if (!m || typeof m !== 'object') return null;
+  const kind = KINDS[m.kind] ? m.kind : 'attack';
+  const effect = EFFECTS[m.effect] ? m.effect : 'none';
+  const num = (v, d) => (Number.isFinite(+v) ? +v : d);
+  return {
+    id: typeof m.id === 'string' ? m.id.slice(0, 40) : newId(),
+    name: String(m.name || 'Nameless Move').slice(0, 24),
+    icon: [...String(m.icon || '✨')].slice(0, 3).join(''),
+    kind,
+    element: ELEMENTS[m.element] ? m.element : 'divine',
+    power: clamp(Math.round(num(m.power, 60)), 0, 120),
+    acc: clamp(Math.round(num(m.acc, 90)), 50, 100),
+    uses: clamp(Math.round(num(m.uses, 5)), 1, 15),
+    effect: kind === 'curse' && effect === 'none' ? 'weaken' : effect,
+    chance: clamp(Math.round(num(m.chance, 30)), 0, 100),
+    priority: !!m.priority,
+    desc: String(m.desc || '').slice(0, 80),
+  };
+}
+function cleanAll(obj) {
+  const out = {};
+  for (const g of GODS) {
+    const list = Array.isArray(obj && obj[g.id]) ? obj[g.id] : [];
+    out[g.id] = list.map(cleanMove).filter(Boolean).slice(0, MAX_MOVES);
+  }
+  return out;
+}
+function load() {
+  store.moves = cleanAll({});
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return;
+    const d = JSON.parse(raw);
+    store.moves = cleanAll(d.moves);
+    store.titan = !!d.titan;
+    if (GOD[d.lastMe]) store.lastMe = d.lastMe;
+    if (GOD[d.lastFoe] || d.lastFoe === 'climb') store.lastFoe = d.lastFoe;
+  } catch (e) { /* storage unavailable: start fresh */ }
+}
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) { /* ignore */ }
+}
+
+/* ================= HELPERS ================= */
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const sleep = ms => new Promise(r => setTimeout(r, reduceMotion ? Math.min(ms, 200) : ms));
+const medal = (g, extra = '') => `<span class="medal ${extra}" style="--c:${ELEMENTS[g.el].color}" aria-hidden="true">${g.emoji}<span class="bubble"></span></span>`;
+const elChip = el => `<span class="chip" style="--c:${ELEMENTS[el].color}">${ELEMENTS[el].icon} ${ELEMENTS[el].name}</span>`;
+
+function moveCost(m) {
+  const k = KINDS[m.kind];
+  let c = m.kind === 'curse' ? 20 + EFFECTS[m.effect].cost * 2 : m.power * k.mult;
+  if (!k.self) c += (m.acc - 70) * 0.5;
+  c += (m.uses - 5) * 2;
+  if ((m.kind === 'attack' || m.kind === 'drain') && m.effect !== 'none') c += EFFECTS[m.effect].cost + m.chance * 0.25;
+  if (m.priority) c += 12;
+  return Math.max(5, Math.round(c));
+}
+function moveSummary(m, usesLeft) {
+  const k = KINDS[m.kind];
+  const bits = [k.label];
+  if (k.powerLabel) bits.push(m.kind === 'attack' || m.kind === 'drain' ? `Pow ${m.power}` : `${m.kind === 'rally' ? '+' + Math.round(m.power / 2) + '% atk' : m.kind === 'heal' ? '+' + m.power + ' HP' : m.power * 1.5 + ' block'}`);
+  if (!k.self) bits.push(`${m.acc}% acc`);
+  if (m.effect !== 'none' && (m.kind === 'curse' || m.kind === 'attack' || m.kind === 'drain')) {
+    bits.push(`${m.kind === 'curse' ? '' : m.chance + '% '}${EFFECTS[m.effect].icon} ${EFFECTS[m.effect].label}`);
+  }
+  if (m.priority) bits.push('Swift');
+  bits.push(usesLeft === undefined ? `${m.uses} uses` : usesLeft === Infinity ? '∞' : `${usesLeft}/${m.uses}`);
+  return bits;
+}
+function moveButtonHTML(m, opts = {}) {
+  const meta = moveSummary(m, opts.left).map(esc).join(' · ');
+  return `<button type="button" class="mv" style="--c:${ELEMENTS[m.element].color}" ${opts.attrs || ''}>
+    <span class="ic" aria-hidden="true">${esc(m.icon)}</span>
+    <b>${esc(m.name)}</b>
+    <span class="meta">${elChip(m.element)} ${meta}</span>
+    <span class="desc">${esc(m.desc || ' ')}</span>
+  </button>`;
+}
+function typeMult(moveEl, defEl) {
+  if (ELEMENTS[moveEl].strong.includes(defEl)) return 1.6;
+  if (ELEMENTS[defEl].strong.includes(moveEl)) return 0.6;
+  return 1;
+}
+function divineStrike(g) {
+  return { id: 'ds-' + g.id, name: 'Divine Strike', icon: ELEMENTS[g.el].icon, kind: 'attack', element: g.el, power: 60, acc: 95, uses: 10, effect: 'none', chance: 0, priority: false, desc: 'A plain blow from an immortal arm.' };
+}
+function battleMoves(godId) {
+  const mine = store.moves[godId];
+  if (mine.length) return mine;
+  const g = GOD[godId];
+  return [cleanMove({ ...g.starter, id: 'st-' + g.id }), divineStrike(g)];
+}
+
+/* ================= NAV ================= */
+const screens = ['home', 'forge', 'setup', 'battle'];
+let current = 'home';
+function go(name) {
+  if (current === 'battle' && name !== 'battle' && B) B.over = true;
+  current = name;
+  for (const s of screens) $('#scr-' + s).hidden = s !== name;
+  document.querySelectorAll('.navbtn').forEach(b => b.setAttribute('aria-current', b.dataset.go === name || (name === 'battle' && b.dataset.go === 'setup') ? 'page' : 'false'));
+  if (name === 'home') renderHome();
+  if (name === 'forge') renderForge();
+  if (name === 'setup') renderSetup();
+  window.scrollTo({ top: 0 });
+}
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-go]');
+  if (t) go(t.dataset.go);
+});
+$('#brand').addEventListener('click', () => go('home'));
+
+/* ================= HOME ================= */
+function renderHome() {
+  $('#pantheon').innerHTML = GODS.map(g => {
+    const n = store.moves[g.id].length;
+    return `<button type="button" class="godcard" data-forge="${g.id}">
+      ${n ? `<span class="count">${n}/${MAX_MOVES}</span>` : ''}
+      ${medal(g)}<b>${g.name}</b><span class="sub">${g.title}</span>${elChip(g.el)}
+    </button>`;
+  }).join('');
+  $('#matchups').innerHTML = Object.entries(ELEMENTS).filter(([k]) => k !== 'divine').map(([k, e]) =>
+    `<div><span style="color:${e.color}">${e.icon} ${e.name}</span> <span class="muted">beats</span> ${e.strong.map(s => ELEMENTS[s].name).join(', ')}</div>`).join('');
+}
+$('#pantheon').addEventListener('click', e => {
+  const b = e.target.closest('[data-forge]');
+  if (b) { forgeGod = b.dataset.forge; editing = null; go('forge'); }
+});
+
+/* ================= FORGE ================= */
+let forgeGod = 'zeus';
+let editing = null; // { slot, draft }
+
+function renderForge() {
+  $('#godtabs').innerHTML = GODS.map(g => `<button type="button" class="godtab" data-god="${g.id}" aria-pressed="${g.id === forgeGod}">
+    ${medal(g)} ${g.name} <span class="n">${store.moves[g.id].length}/${MAX_MOVES}</span></button>`).join('');
+  renderGodPanel();
+  renderEditor();
+  $('#titan').checked = store.titan;
+  $('#sharecode').value = exportCode();
+}
+function statRow(label, v) {
+  return `<span>${label}</span><span class="bar"><i style="width:${Math.round(v / 140 * 100)}%"></i></span><span class="v">${v}</span>`;
+}
+function renderGodPanel() {
+  const g = GOD[forgeGod];
+  const moves = store.moves[g.id];
+  const slots = [];
+  for (let i = 0; i < MAX_MOVES; i++) {
+    const m = moves[i];
+    const active = editing && editing.slot === i ? ' active' : '';
+    if (m) {
+      slots.push(`<button type="button" class="slot filled${active}" data-slot="${i}" style="--c:${ELEMENTS[m.element].color}">
+        <span class="ic" aria-hidden="true">${esc(m.icon)}</span>
+        <span class="t"><b>${esc(m.name)}</b><span>${esc(moveSummary(m).join(' · '))} · cost ${moveCost(m)}</span></span>
+      </button>`);
+    } else if (i === moves.length) {
+      slots.push(`<button type="button" class="slot${active}" data-slot="${i}"><span class="ic" aria-hidden="true">＋</span><span class="t"><span class="plus">Design a new move</span><span style="display:block">Slot ${i + 1} is empty</span></span></button>`);
+    } else {
+      slots.push(`<div class="slot" aria-hidden="true" style="opacity:.45"><span class="ic">·</span><span class="t"><span>Slot ${i + 1}</span></span></div>`);
+    }
+  }
+  $('#godpanel').innerHTML = `
+    <div class="godhead">${medal(g)}<div><span class="eyebrow" style="color:var(--ink)">${g.title}</span><h2>${g.name}</h2>${elChip(g.el)}</div></div>
+    <div class="stats">${statRow('HP', g.hp)}${statRow('ATK', g.atk)}${statRow('DEF', g.def)}${statRow('SPD', g.spd)}</div>
+    <div class="matchline">
+      <span><b>Strong against:</b> ${ELEMENTS[g.el].strong.map(s => ELEMENTS[s].name).join(', ')}</span>
+      <span><b>Weak to:</b> ${weakTo(g.el).map(s => ELEMENTS[s].name).join(', ')}</span>
+    </div>
+    <div class="slots">${slots.join('')}</div>
+    ${moves.length ? '' : `<p class="hint" style="color:var(--ink);margin:0">No moves yet. As an opponent, ${g.name} uses a starter set until you forge some.</p>`}`;
+}
+$('#godtabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-god]');
+  if (!b) return;
+  forgeGod = b.dataset.god; editing = null; renderForge();
+});
+$('#godpanel').addEventListener('click', e => {
+  const b = e.target.closest('[data-slot]');
+  if (!b) return;
+  const slot = +b.dataset.slot;
+  const g = GOD[forgeGod];
+  const existing = store.moves[g.id][slot];
+  let draft;
+  if (existing) draft = { ...existing };
+  else if (!store.moves[g.id].some(m => m.name === g.starter.name)) draft = cleanMove({ ...g.starter, id: newId() });
+  else draft = cleanMove({ id: newId(), name: '', icon: ELEMENTS[g.el].icon, kind: 'attack', element: g.el, power: 60, acc: 90, uses: 6, effect: 'none', chance: 30 });
+  editing = { slot, draft, isNew: !existing };
+  renderGodPanel();
+  renderEditor();
+  if (matchMedia('(max-width: 820px)').matches) $('#editorwrap').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+});
+
+function renderEditor() {
+  const wrap = $('#editorwrap');
+  if (!editing) {
+    wrap.innerHTML = `<div class="editor-empty"><h3 style="color:var(--gold);margin-bottom:6px">The Forge is ready</h3>Pick a slot on the left to design a move for ${GOD[forgeGod].name}.</div>`;
+    return;
+  }
+  const d = editing.draft;
+  const g = GOD[forgeGod];
+  wrap.innerHTML = `
+  <form class="editor" id="mvform" autocomplete="off">
+    <div class="row" style="justify-content:space-between"><h3>${editing.isNew ? 'New move' : 'Edit move'} for ${g.name}</h3><span class="muted">Slot ${editing.slot + 1}</span></div>
+    <div class="field"><label for="mv-name">Move name</label>
+      <input type="text" id="mv-name" maxlength="24" placeholder="e.g. Wrath of the Titans" value="${esc(d.name)}"></div>
+    <div class="field"><span class="lbl">Icon</span>
+      <div class="icons" id="mv-icons">${ICONS.map(i => `<button type="button" data-icon="${i}" aria-pressed="${i === d.icon}" aria-label="Icon ${i}">${i}</button>`).join('')}
+      <input type="text" id="mv-icon" maxlength="6" value="${esc(d.icon)}" aria-label="Custom icon"></div></div>
+    <div class="field"><span class="lbl">Move type</span>
+      <div class="kinds" id="mv-kinds">${Object.entries(KINDS).map(([k, v]) => `<button type="button" data-kind="${k}" aria-pressed="${k === d.kind}">${v.label}</button>`).join('')}</div>
+      <p class="hint" id="kindhint"></p></div>
+    <div class="two">
+      <div class="field"><label for="mv-element">Element</label>
+        <select id="mv-element">${Object.entries(ELEMENTS).map(([k, e]) => `<option value="${k}" ${k === d.element ? 'selected' : ''}>${e.icon} ${e.name}${k === g.el ? ' (+20% for ' + g.name + ')' : ''}</option>`).join('')}</select></div>
+      <div class="field"><label for="mv-uses">Uses per battle <output id="o-uses"></output></label>
+        <input type="range" id="mv-uses" min="1" max="15" step="1" value="${d.uses}"></div>
+    </div>
+    <div class="two">
+      <div class="field" id="f-power"><label for="mv-power"><span id="powerlabel">Power</span> <output id="o-power"></output></label>
+        <input type="range" id="mv-power" min="10" max="120" step="5" value="${clamp(d.power, 10, 120)}"></div>
+      <div class="field" id="f-acc"><label for="mv-acc">Accuracy <output id="o-acc"></output></label>
+        <input type="range" id="mv-acc" min="50" max="100" step="5" value="${d.acc}"></div>
+    </div>
+    <div class="two" id="f-effectrow">
+      <div class="field"><label for="mv-effect">Side effect</label>
+        <select id="mv-effect">${Object.entries(EFFECTS).map(([k, e]) => `<option value="${k}" ${k === d.effect ? 'selected' : ''}>${e.icon} ${e.label}</option>`).join('')}</select>
+        <p class="hint" id="effecthint"></p></div>
+      <div class="field" id="f-chance"><label for="mv-chance">Effect chance <output id="o-chance"></output></label>
+        <input type="range" id="mv-chance" min="10" max="100" step="10" value="${clamp(d.chance, 10, 100)}"></div>
+    </div>
+    <label class="check" for="mv-priority"><input type="checkbox" id="mv-priority" ${d.priority ? 'checked' : ''}><span><b>Swift</b>: this move always goes first</span></label>
+    <div class="field"><label for="mv-desc">Battle cry (optional)</label>
+      <textarea id="mv-desc" maxlength="80" placeholder="What does your god shout?">${esc(d.desc)}</textarea></div>
+    <div class="cost" id="costbox">
+      <div class="field"><span class="lbl">Divine power cost <output id="o-cost"></output></span></div>
+      <div class="meter" id="costmeter"><i></i></div>
+      <p class="hint" id="costhint"></p>
+    </div>
+    <div class="preview"><span class="eyebrow">How it looks in battle</span><div id="mvpreview"></div><p class="hint" id="dmghint"></p></div>
+    <div class="row">
+      <button class="btn gold" type="submit" id="savebtn">Save move</button>
+      <button class="btn ghost" type="button" id="cancelbtn">Cancel</button>
+      ${editing.isNew ? '' : '<button class="btn danger" type="button" id="delbtn">Delete</button>'}
+    </div>
+  </form>`;
+  syncEditor();
+}
+function readForm() {
+  const d = editing.draft;
+  d.name = $('#mv-name').value.trim().slice(0, 24);
+  d.icon = [...$('#mv-icon').value.trim()].slice(0, 3).join('') || '✨';
+  d.element = $('#mv-element').value;
+  d.uses = +$('#mv-uses').value;
+  d.power = +$('#mv-power').value;
+  d.acc = +$('#mv-acc').value;
+  d.effect = $('#mv-effect').value;
+  d.chance = +$('#mv-chance').value;
+  d.priority = $('#mv-priority').checked;
+  d.desc = $('#mv-desc').value.slice(0, 80);
+}
+function syncEditor() {
+  const d = editing.draft;
+  const k = KINDS[d.kind];
+  // the curse needs an effect, self moves can't carry one
+  const effSel = $('#mv-effect');
+  effSel.querySelector('option[value="none"]').disabled = d.kind === 'curse';
+  if (d.kind === 'curse' && d.effect === 'none') { d.effect = 'weaken'; effSel.value = 'weaken'; }
+  $('#f-power').hidden = !k.powerLabel;
+  $('#powerlabel').textContent = k.powerLabel || '';
+  $('#f-acc').hidden = k.self;
+  $('#f-effectrow').hidden = k.self;
+  $('#f-chance').hidden = d.kind === 'curse' || d.effect === 'none';
+  $('#kindhint').textContent = k.hint;
+  $('#effecthint').textContent = EFFECTS[d.effect].hint;
+  $('#o-uses').textContent = d.uses;
+  $('#o-power').textContent = d.kind === 'rally' ? `${d.power} (+${Math.round(d.power / 2)}% atk)` : d.kind === 'shield' ? `${d.power} (blocks ${Math.round(d.power * 1.5)})` : d.power;
+  $('#o-acc').textContent = d.acc + '%';
+  $('#o-chance').textContent = d.chance + '%';
+  document.querySelectorAll('#mv-kinds [data-kind]').forEach(b => b.setAttribute('aria-pressed', b.dataset.kind === d.kind));
+  document.querySelectorAll('#mv-icons [data-icon]').forEach(b => b.setAttribute('aria-pressed', b.dataset.icon === d.icon));
+
+  const m = cleanMove(d);
+  const cost = moveCost(m);
+  const over = cost > BUDGET && !store.titan;
+  $('#o-cost').textContent = `${cost} / ${store.titan ? '∞' : BUDGET}`;
+  $('#costmeter').querySelector('i').style.width = Math.min(100, cost / BUDGET * 100) + '%';
+  $('#costmeter').classList.toggle('over', over);
+  $('#costbox').classList.toggle('over', over);
+  $('#costhint').textContent = over
+    ? `Over the limit by ${cost - BUDGET}. Lower power, accuracy or uses, or drop the side effect or Swift.`
+    : store.titan ? 'Titan mode is on, so there is no limit.' : `${BUDGET - cost} power to spare.`;
+  $('#mvpreview').innerHTML = moveButtonHTML({ ...m, name: m.name || 'Unnamed move' }, { attrs: 'tabindex="-1" aria-hidden="true"' });
+  const g = GOD[forgeGod];
+  if (m.kind === 'attack' || m.kind === 'drain') {
+    const stab = m.element === g.el ? 1.2 : 1;
+    const base = Math.round(m.power * g.atk / 100 * 0.6 * stab);
+    $('#dmghint').textContent = `About ${Math.round(base * 0.92)} damage to an average god (out of ~210 HP). Super effective: about ${Math.round(base * 0.92 * 1.6)}.`;
+  } else $('#dmghint').textContent = '';
+  $('#savebtn').disabled = over || !d.name;
+}
+$('#editorwrap').addEventListener('input', e => {
+  if (!editing || !e.target.closest('#mvform')) return;
+  readForm();
+  syncEditor();
+});
+$('#editorwrap').addEventListener('click', e => {
+  if (!editing) return;
+  const kb = e.target.closest('[data-kind]');
+  const ib = e.target.closest('[data-icon]');
+  if (kb) { readForm(); editing.draft.kind = kb.dataset.kind; syncEditor(); return; }
+  if (ib) { $('#mv-icon').value = ib.dataset.icon; readForm(); syncEditor(); return; }
+  if (e.target.id === 'cancelbtn') { editing = null; renderGodPanel(); renderEditor(); return; }
+  if (e.target.id === 'delbtn') {
+    const list = store.moves[forgeGod];
+    if (e.target.dataset.armed) {
+      list.splice(editing.slot, 1);
+      save(); editing = null; renderForge();
+    } else {
+      e.target.dataset.armed = '1';
+      e.target.textContent = 'Tap again to delete';
+    }
+  }
+});
+$('#editorwrap').addEventListener('submit', e => {
+  e.preventDefault();
+  if (!editing) return;
+  readForm();
+  const m = cleanMove(editing.draft);
+  if (!editing.draft.name || (moveCost(m) > BUDGET && !store.titan)) return;
+  const list = store.moves[forgeGod];
+  if (editing.isNew) list.push(m); else list[editing.slot] = m;
+  save();
+  editing = null;
+  renderForge();
+});
+$('#titan').addEventListener('change', e => {
+  store.titan = e.target.checked; save();
+  if (editing) { readForm(); syncEditor(); }
+});
+
+/* sharing */
+function exportCode() {
+  const slim = {};
+  for (const g of GODS) if (store.moves[g.id].length) slim[g.id] = store.moves[g.id].map(({ id, ...rest }) => rest);
+  try { return 'OLYMPUS1:' + btoa(unescape(encodeURIComponent(JSON.stringify(slim)))); } catch (e) { return ''; }
+}
+$('#copycode').addEventListener('click', () => {
+  const ta = $('#sharecode');
+  ta.value = exportCode();
+  const done = () => { $('#sharemsg').textContent = 'Copied.'; };
+  const fallback = () => { ta.focus(); ta.select(); $('#sharemsg').textContent = 'Selected. Press Ctrl+C or ⌘C to copy.'; };
+  try { navigator.clipboard.writeText(ta.value).then(done, fallback); } catch (e) { fallback(); }
+});
+$('#loadcode').addEventListener('click', () => {
+  const raw = $('#sharecode').value.trim();
+  try {
+    if (!raw.startsWith('OLYMPUS1:')) throw new Error('prefix');
+    const data = JSON.parse(decodeURIComponent(escape(atob(raw.slice(9)))));
+    const cleaned = cleanAll(data);
+    let n = 0;
+    for (const g of GODS) if (cleaned[g.id].length) { store.moves[g.id] = cleaned[g.id]; n += cleaned[g.id].length; }
+    save(); editing = null; renderForge();
+    $('#sharemsg').textContent = `Loaded ${n} move${n === 1 ? '' : 's'}.`;
+  } catch (e) {
+    $('#sharemsg').textContent = 'That code did not work. It should start with OLYMPUS1:';
+  }
+});
+
+/* ================= SETUP ================= */
+function renderSetup() {
+  $('#pickme').innerHTML = GODS.map(g => {
+    const n = store.moves[g.id].length;
+    return `<button type="button" class="pick" data-me="${g.id}" aria-pressed="${store.lastMe === g.id}">${medal(g)}${g.name}<small>${n ? n + ' move' + (n > 1 ? 's' : '') : 'No moves yet'}</small></button>`;
+  }).join('');
+  $('#pickfoe').innerHTML = `<button type="button" class="pick climb" data-foe="climb" aria-pressed="${store.lastFoe === 'climb'}"><span class="medal" style="--c:#e6b84f">🏛️</span>Climb Olympus<small>Beat every other god in a row</small></button>` +
+    GODS.filter(g => g.id !== store.lastMe).map(g => {
+      const n = store.moves[g.id].length;
+      return `<button type="button" class="pick" data-foe="${g.id}" aria-pressed="${store.lastFoe === g.id}">${medal(g)}${g.name}<small>${n ? n + ' forged move' + (n > 1 ? 's' : '') : 'Starter set'}</small></button>`;
+    }).join('');
+  checkSetup();
+}
+function checkSetup() {
+  const n = store.moves[store.lastMe].length;
+  if (store.lastFoe === store.lastMe) store.lastFoe = 'climb';
+  const note = $('#setupnote');
+  if (!n) {
+    note.innerHTML = `${GOD[store.lastMe].name} has no moves. <button class="btn ghost" type="button" id="toforge" style="padding:4px 10px">Forge some</button>`;
+    $('#startbtn').disabled = true;
+  } else {
+    note.textContent = store.lastFoe === 'climb' ? `${GOD[store.lastMe].name} will face all nine other gods.` : `${GOD[store.lastMe].name} vs ${GOD[store.lastFoe].name}`;
+    $('#startbtn').disabled = false;
+  }
+}
+$('#pickme').addEventListener('click', e => {
+  const b = e.target.closest('[data-me]'); if (!b) return;
+  store.lastMe = b.dataset.me; save(); renderSetup();
+});
+$('#pickfoe').addEventListener('click', e => {
+  const b = e.target.closest('[data-foe]'); if (!b) return;
+  store.lastFoe = b.dataset.foe; save(); renderSetup();
+});
+$('#setupnote').addEventListener('click', e => {
+  if (e.target.id === 'toforge') { forgeGod = store.lastMe; editing = null; go('forge'); }
+});
+$('#startbtn').addEventListener('click', () => {
+  if (!store.moves[store.lastMe].length) return;
+  let order;
+  if (store.lastFoe === 'climb') {
+    order = GODS.map(g => g.id).filter(id => id !== store.lastMe);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  } else order = [store.lastFoe];
+  startBattle(store.lastMe, order, 0);
+});
+
+/* ================= BATTLE ================= */
+let B = null;
+function makeFighter(godId, side) {
+  const g = GOD[godId];
+  const moves = battleMoves(godId).map(m => ({ ...m, left: m.uses }));
+  return { god: g, side, hp: g.hp * 2, max: g.hp * 2, moves, atkMod: 1, shield: 0, burn: 0, weaken: 0, blind: 0, stun: false, stunImmune: 0 };
+}
+function startBattle(meId, order, idx) {
+  B = { p: makeFighter(meId, 'p'), e: makeFighter(order[idx], 'e'), order, idx, busy: false, over: false, log: [] };
+  go('battle');
+  $('#result').hidden = true;
+  renderFighter(B.p); renderFighter(B.e);
+  renderLadder();
+  B.log = [];
+  say(`${B.e.god.name}, ${B.e.god.title}, stands before you.`, 0);
+  renderMoves();
+}
+function renderLadder() {
+  const el = $('#ladder');
+  if (B.order.length < 2) { el.innerHTML = `<span class="eyebrow">Duel</span>`; return; }
+  el.innerHTML = `<span class="eyebrow">Climb Olympus</span>` + B.order.map((id, i) =>
+    `<span class="dot ${i < B.idx ? 'done' : ''} ${i === B.idx ? 'now' : ''}" title="${GOD[id].name}">${i < B.idx ? '✓' : GOD[id].emoji}</span>`).join('');
+}
+function renderFighter(f) {
+  const el = $(f.side === 'p' ? '#f-p' : '#f-e');
+  el.innerHTML = `${medal(f.god)}<div class="plate">
+    <div class="nm"><b>${f.god.name}</b><span>${f.side === 'p' ? 'You' : 'Foe'}</span></div>
+    <div class="hpbar"><i></i></div>
+    <div class="hpnum"><span class="hpv"></span>${elChip(f.god.el)}</div>
+    <div class="status"></div></div>`;
+  updateFighter(f);
+}
+function updateFighter(f) {
+  const el = $(f.side === 'p' ? '#f-p' : '#f-e');
+  const pct = f.hp / f.max * 100;
+  const bar = el.querySelector('.hpbar i');
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 50 ? 'var(--good)' : pct > 22 ? 'var(--gold)' : 'var(--bad)';
+  el.querySelector('.hpv').textContent = `${f.hp} / ${f.max} HP`;
+  const st = [];
+  if (f.atkMod > 1) st.push(`⬆️ ATK +${Math.round((f.atkMod - 1) * 100)}%`);
+  if (f.shield > 0) st.push(`🛡️ ${f.shield}`);
+  if (f.burn) st.push(`🔥 Burn ${f.burn}`);
+  if (f.weaken) st.push(`💔 Weak ${f.weaken}`);
+  if (f.blind) st.push(`🌫️ Blind ${f.blind}`);
+  if (f.stun) st.push('💫 Stunned');
+  el.querySelector('.status').innerHTML = st.map(s => `<span class="st">${s}</span>`).join('');
+  el.querySelector('.medal').classList.toggle('shielded', f.shield > 0);
+}
+function renderMoves() {
+  const f = B.p;
+  const allOut = f.moves.every(m => m.left <= 0);
+  let html = f.moves.map((m, i) => moveButtonHTML(m, { left: m.left, attrs: `data-mv="${i}" ${m.left <= 0 || B.busy ? 'disabled' : ''}` })).join('');
+  if (allOut) html += moveButtonHTML(STRUGGLE, { left: Infinity, attrs: `data-mv="-1" ${B.busy ? 'disabled' : ''}` });
+  $('#moves').innerHTML = html;
+}
+async function say(msg, wait = 750) {
+  B.log.push(msg);
+  B.log = B.log.slice(-3);
+  $('#log').innerHTML = B.log.map(l => `<p>${esc(l)}</p>`).join('');
+  if (wait) await sleep(wait);
+}
+
+/* --- effects --- */
+const arena = $('#arena');
+const medalOf = f => $(f.side === 'p' ? '#f-p .medal' : '#f-e .medal');
+function centerOf(el) {
+  const r = el.getBoundingClientRect(), a = arena.getBoundingClientRect();
+  return { x: r.left - a.left + r.width / 2, y: r.top - a.top + r.height / 2 };
+}
+async function projectile(from, to, move, miss) {
+  const s = document.createElement('div');
+  s.className = 'proj'; s.textContent = move.icon;
+  const color = ELEMENTS[move.element].color;
+  s.style.setProperty('--glow', color);
+  arena.append(s);
+  const a = centerOf(medalOf(from)), b = centerOf(medalOf(to));
+  const end = miss ? { x: b.x + (to.side === 'e' ? 140 : -140), y: b.y - 60 } : b;
+  const anim = s.animate([
+    { transform: `translate(${a.x}px, ${a.y}px) translate(-50%, -50%) scale(.6) rotate(0deg)`, opacity: 1 },
+    { transform: `translate(${end.x}px, ${end.y}px) translate(-50%, -50%) scale(1.4) rotate(${to.side === 'e' ? 20 : -20}deg)`, opacity: miss ? 0 : 1 },
+  ], { duration: reduceMotion ? 1 : 480, easing: 'cubic-bezier(.45,0,.75,.5)' });
+  await anim.finished.catch(() => {});
+  s.remove();
+  if (!miss) burst(b, color);
+}
+function burst(p, color, n = 12) {
+  if (reduceMotion) return;
+  for (let i = 0; i < n; i++) {
+    const d = document.createElement('div');
+    d.className = 'spark'; d.style.setProperty('--glow', color);
+    arena.append(d);
+    const ang = Math.random() * Math.PI * 2, dist = 30 + Math.random() * 50;
+    d.animate([
+      { transform: `translate(${p.x}px, ${p.y}px) scale(1)`, opacity: 1 },
+      { transform: `translate(${p.x + Math.cos(ang) * dist}px, ${p.y + Math.sin(ang) * dist}px) scale(.2)`, opacity: 0 },
+    ], { duration: 500 + Math.random() * 300, easing: 'ease-out' }).finished.then(() => d.remove(), () => d.remove());
+  }
+}
+function floatText(f, text, color) {
+  const el = document.createElement('div');
+  el.className = 'float'; el.textContent = text; el.style.color = color;
+  arena.append(el);
+  const p = centerOf(medalOf(f));
+  el.animate([
+    { transform: `translate(${p.x}px, ${p.y - 20}px) translate(-50%, -50%) scale(.7)`, opacity: 0 },
+    { transform: `translate(${p.x}px, ${p.y - 50}px) translate(-50%, -50%) scale(1.15)`, opacity: 1, offset: .25 },
+    { transform: `translate(${p.x}px, ${p.y - 90}px) translate(-50%, -50%) scale(1)`, opacity: 0 },
+  ], { duration: reduceMotion ? 600 : 1100, easing: 'ease-out' }).finished.then(() => el.remove(), () => el.remove());
+}
+function hitShake(f, big) {
+  if (reduceMotion) return;
+  const m = medalOf(f);
+  const d = big ? 12 : 6;
+  m.animate([
+    { transform: 'translateX(0)', filter: 'brightness(1)' },
+    { transform: `translateX(${-d}px)`, filter: 'brightness(2.2)' },
+    { transform: `translateX(${d}px)`, filter: 'brightness(1.4)' },
+    { transform: `translateX(${-d / 2}px)` },
+    { transform: 'translateX(0)', filter: 'brightness(1)' },
+  ], { duration: 380 });
+}
+function lunge(f) {
+  if (reduceMotion) return;
+  const dx = f.side === 'p' ? 18 : -18, dy = f.side === 'p' ? -10 : 10;
+  medalOf(f).animate([{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px, ${dy}px) scale(1.08)` }, { transform: 'translate(0,0)' }], { duration: 300 });
+}
+function aura(f, color) {
+  if (reduceMotion) return;
+  medalOf(f).animate([
+    { boxShadow: `0 0 0 3px var(--ink), 0 0 0 6px var(--clay), 0 0 0 8px var(--ink), 0 0 0 0 ${color}` },
+    { boxShadow: `0 0 0 3px var(--ink), 0 0 0 6px var(--clay), 0 0 0 8px var(--ink), 0 0 40px 18px ${color}` },
+    { boxShadow: `0 0 0 3px var(--ink), 0 0 0 6px var(--clay), 0 0 0 8px var(--ink), 0 0 0 0 ${color}` },
+  ], { duration: 700 });
+  burst(centerOf(medalOf(f)), color, 10);
+}
+
+/* --- rules --- */
+function calcDamage(att, def, move) {
+  const atk = att.god.atk * att.atkMod * (att.weaken ? 0.75 : 1);
+  const mult = typeMult(move.element, def.god.el);
+  const stab = move.element === att.god.el ? 1.2 : 1;
+  const crit = Math.random() < 0.0625;
+  const rand = 0.85 + Math.random() * 0.15;
+  const dmg = Math.max(1, Math.round(move.power * (atk / def.god.def) * 0.6 * mult * stab * (crit ? 1.5 : 1) * rand));
+  return { dmg, mult, crit };
+}
+function applyEffect(target, effect) {
+  const n = target.god.name;
+  switch (effect) {
+    case 'burn': if (target.burn) return `${n} is already burning.`; target.burn = 3; return `${n} is set ablaze! 🔥`;
+    case 'stun': if (target.stun || target.stunImmune) return `${n} shrugs off the stun.`; target.stun = true; return `${n} is stunned! 💫`;
+    case 'weaken': if (target.weaken) return `${n} is already weakened.`; target.weaken = 3; return `${n}'s strength fades! 💔`;
+    case 'blind': if (target.blind) return `${n} is already blinded.`; target.blind = 3; return `${n} is blinded! 🌫️`;
+  }
+  return '';
+}
+async function act(user, target, move) {
+  if (B.over || user.hp <= 0) return;
+  const n = user.god.name;
+  if (user.stun) {
+    user.stun = false; user.stunImmune = 2; updateFighter(user);
+    hitShake(user, false);
+    await say(`${n} is stunned and can't move!`);
+    return;
+  }
+  if (move.left !== Infinity) move.left--;
+  lunge(user);
+  await say(`${n} uses ${move.name}!${move.desc ? ' “' + move.desc + '”' : ''}`, 500);
+  const k = KINDS[move.kind];
+  if (!k.self) {
+    const acc = move.acc - (user.blind ? 30 : 0);
+    if (Math.random() * 100 >= acc) {
+      await projectile(user, target, move, true);
+      await say(`${n}'s attack missed!`);
+      return;
+    }
+    await projectile(user, target, move, false);
+    if (move.kind === 'attack' || move.kind === 'drain') {
+      let { dmg, mult, crit } = calcDamage(user, target, move);
+      if (target.shield > 0) {
+        const absorbed = Math.min(target.shield, dmg);
+        target.shield -= absorbed; dmg -= absorbed;
+        floatText(target, `🛡️ −${absorbed}`, '#9fd8ff');
+        await sleep(250);
+      }
+      target.hp = Math.max(0, target.hp - dmg);
+      hitShake(target, mult > 1 || crit);
+      if (dmg > 0) floatText(target, `−${dmg}`, mult > 1 ? '#ffd166' : mult < 1 ? '#c9b8a0' : '#ffffff');
+      updateFighter(target);
+      const notes = [];
+      if (crit) notes.push('A critical hit!');
+      if (mult > 1) notes.push("It's super effective!");
+      if (mult < 1) notes.push("It's not very effective…");
+      if (target.shield === 0 && dmg === 0) notes.push('The shield took the whole blow!');
+      if (notes.length) await say(notes.join(' '), 650); else await sleep(450);
+      if (move.kind === 'drain' && dmg > 0 && user.hp < user.max) {
+        const heal = Math.min(user.max - user.hp, Math.round(dmg / 2));
+        user.hp += heal; updateFighter(user);
+        floatText(user, `+${heal}`, '#9be38a'); aura(user, '#9be38a');
+        await say(`${n} drains ${heal} HP.`, 600);
+      }
+    }
+    const chance = move.kind === 'curse' ? 100 : move.chance;
+    if (move.effect !== 'none' && target.hp > 0 && Math.random() * 100 < chance) {
+      const msg = applyEffect(target, move.effect);
+      updateFighter(target);
+      if (msg) await say(msg, 650);
+    } else if (move.kind === 'curse') {
+      await say('The curse fizzles.', 500);
+    }
+  } else if (move.kind === 'heal') {
+    const heal = Math.min(user.max - user.hp, move.power);
+    user.hp += heal; updateFighter(user);
+    aura(user, '#9be38a'); floatText(user, `+${heal}`, '#9be38a');
+    await say(heal ? `${n} recovers ${heal} HP.` : `${n} is already at full health.`);
+  } else if (move.kind === 'shield') {
+    user.shield = Math.round(move.power * 1.5);
+    aura(user, '#9fd8ff'); updateFighter(user);
+    await say(`${n} raises a shield that blocks ${user.shield} damage.`);
+  } else if (move.kind === 'rally') {
+    const before = user.atkMod;
+    user.atkMod = Math.min(2, user.atkMod + move.power / 200);
+    aura(user, ELEMENTS[move.element].color); updateFighter(user);
+    await say(user.atkMod > before ? `${n}'s attack rises to +${Math.round((user.atkMod - 1) * 100)}%!` : `${n}'s attack can't go any higher.`);
+  }
+}
+async function endOfTurn() {
+  for (const f of [B.p, B.e]) {
+    if (B.over || f.hp <= 0) continue;
+    if (f.burn) {
+      const d = Math.max(1, Math.round(f.max * 0.06));
+      f.hp = Math.max(0, f.hp - d); f.burn--;
+      floatText(f, `🔥 −${d}`, '#ff9a5a'); hitShake(f, false); updateFighter(f);
+      await say(`${f.god.name} is hurt by the burn.`, 600);
+    }
+    if (f.weaken) f.weaken--;
+    if (f.blind) f.blind--;
+    if (f.stunImmune) f.stunImmune--;
+    updateFighter(f);
+  }
+}
+function aiChoose(me, foe) {
+  const opts = me.moves.filter(m => m.left > 0);
+  if (!opts.length) return STRUGGLE;
+  const hpPct = me.hp / me.max;
+  let best = null, bestScore = -Infinity;
+  for (const m of opts) {
+    let s = 0;
+    if (m.kind === 'attack' || m.kind === 'drain') {
+      const exp = m.power * (me.god.atk * me.atkMod / foe.god.def) * 0.6 * typeMult(m.element, foe.god.el) * (m.element === me.god.el ? 1.2 : 1) * (m.acc / 100);
+      s = exp;
+      if (exp * 0.9 >= foe.hp + foe.shield) s += 200;
+      if (m.kind === 'drain') s += Math.min(exp / 2, me.max - me.hp) * 0.6;
+      if (m.effect !== 'none') s += m.chance * 0.15;
+    } else if (m.kind === 'curse') {
+      const already = (m.effect === 'burn' && foe.burn) || (m.effect === 'weaken' && foe.weaken) || (m.effect === 'blind' && foe.blind) || (m.effect === 'stun' && (foe.stun || foe.stunImmune));
+      s = already ? -50 : 35 * m.acc / 100;
+    } else if (m.kind === 'heal') {
+      s = hpPct < 0.45 ? Math.min(m.power, me.max - me.hp) * 1.4 : hpPct > 0.8 ? -50 : 10;
+    } else if (m.kind === 'shield') {
+      s = me.shield > 0 ? -50 : hpPct < 0.7 ? m.power * 0.7 : 15;
+    } else if (m.kind === 'rally') {
+      s = me.atkMod >= 2 ? -50 : hpPct > 0.5 ? m.power * 0.8 : 5;
+    }
+    s += Math.random() * 18;
+    if (s > bestScore) { bestScore = s; best = m; }
+  }
+  return best;
+}
+async function playerPick(i) {
+  if (!B || B.busy || B.over) return;
+  const pm = i === -1 ? { ...STRUGGLE, left: Infinity } : B.p.moves[i];
+  if (!pm || pm.left <= 0) return;
+  B.busy = true; renderMoves();
+  const em = aiChoose(B.e, B.p);
+  const pFirst = pm.priority !== em.priority ? pm.priority
+    : B.p.god.spd !== B.e.god.spd ? B.p.god.spd > B.e.god.spd : Math.random() < 0.5;
+  const turn = pFirst ? [[B.p, B.e, pm], [B.e, B.p, em]] : [[B.e, B.p, em], [B.p, B.e, pm]];
+  const battle = B;
+  for (const [u, t, m] of turn) {
+    await act(u, t, m);
+    if (battle !== B || B.over) return;
+    if (B.p.hp <= 0 || B.e.hp <= 0) break;
+  }
+  if (battle !== B || B.over) return;
+  if (B.p.hp > 0 && B.e.hp > 0) await endOfTurn();
+  if (battle !== B || B.over) return;
+  if (B.p.hp <= 0 || B.e.hp <= 0) return finish();
+  B.busy = false; renderMoves();
+}
+async function finish() {
+  B.over = true;
+  const won = B.e.hp <= 0 && B.p.hp > 0;
+  const loser = won ? B.e : B.p;
+  if (!reduceMotion) medalOf(loser).animate([{ opacity: 1, transform: 'scale(1)' }, { opacity: .25, transform: 'scale(.8) translateY(14px)', filter: 'grayscale(1)' }], { duration: 700, fill: 'forwards' });
+  await say(won ? `${B.e.god.name} falls!` : B.e.hp <= 0 ? 'Both gods fall together!' : `${B.p.god.name} falls…`, 900);
+  renderMoves();
+  const r = $('#result');
+  const last = B.idx >= B.order.length - 1;
+  const climbing = B.order.length > 1;
+  let title, text, buttons;
+  if (won && climbing && !last) {
+    title = 'Victory'; text = `${B.e.god.name} is defeated. Next up: ${GOD[B.order[B.idx + 1]].name}. Your HP and move uses are restored.`;
+    buttons = `<button class="btn gold" type="button" data-res="next">Fight ${GOD[B.order[B.idx + 1]].name}</button>`;
+  } else if (won && climbing) {
+    title = 'Ruler of Olympus'; text = `${B.p.god.name} defeated all nine gods. The throne is yours.`;
+    buttons = `<button class="btn gold" type="button" data-res="again">Climb again</button>`;
+  } else if (won) {
+    title = 'Victory'; text = `${B.p.god.name} defeats ${B.e.god.name} with ${B.p.hp} HP to spare.`;
+    buttons = `<button class="btn gold" type="button" data-res="rematch">Rematch</button>`;
+  } else {
+    title = 'Defeat'; text = `${B.e.god.name} wins this time. Try sharper moves in the Forge, or a better element matchup.`;
+    buttons = `<button class="btn gold" type="button" data-res="rematch">Try again</button>`;
+  }
+  r.innerHTML = `<span class="eyebrow">${climbing ? `Climb Olympus · ${B.idx + (won ? 1 : 0)}/${B.order.length}` : 'Duel'}</span>
+    <h2>${title}</h2><p>${esc(text)}</p>
+    <div class="row" style="justify-content:center">${buttons}
+      <button class="btn ghost" type="button" data-res="forge">Move Forge</button>
+      <button class="btn ghost" type="button" data-res="setup">New battle</button></div>`;
+  r.hidden = false;
+}
+$('#result').addEventListener('click', e => {
+  const b = e.target.closest('[data-res]'); if (!b) return;
+  const a = b.dataset.res;
+  const meId = B.p.god.id;
+  if (a === 'next') startBattle(meId, B.order, B.idx + 1);
+  else if (a === 'rematch') startBattle(meId, B.order, B.idx);
+  else if (a === 'again') $('#startbtn').click();
+  else if (a === 'forge') { forgeGod = meId; editing = null; go('forge'); }
+  else go('setup');
+});
+$('#moves').addEventListener('click', e => {
+  const b = e.target.closest('[data-mv]');
+  if (b && !b.disabled) playerPick(+b.dataset.mv);
+});
+document.addEventListener('keydown', e => {
+  if (current !== 'battle' || !B || B.busy || B.over) return;
+  if (['1', '2', '3', '4'].includes(e.key)) {
+    const i = +e.key - 1;
+    if (B.p.moves[i] && B.p.moves[i].left > 0) playerPick(i);
+  }
+});
+$('#fleebtn').addEventListener('click', () => go('setup'));
+
+/* ================= BOOT ================= */
+load();
+go('home');
+})();
+</script>
+</body>
+</html>
