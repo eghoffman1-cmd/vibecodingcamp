@@ -315,9 +315,9 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
   <!-- HOME -->
   <section id="scr-home">
     <div class="hero">
-      <span class="eyebrow">38 gods · 6 mythologies · you write every move</span>
+      <span class="eyebrow">46 gods · 8 mythologies · you write every move</span>
       <h1>Clash of the <span>Gods</span></h1>
-      <p>Design the moves for Zeus, Thor, Ra, Amaterasu, Quetzalcoatl, Sun Wukong and gods from all over the world in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
+      <p>Design the moves for Zeus, Thor, Ra, Amaterasu, Quetzalcoatl, Sun Wukong, Lugh, Chaac and gods from all over the world in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
       <div class="row">
         <button class="btn gold" type="button" data-go="forge">Forge moves</button>
         <button class="btn ghost" type="button" data-go="setup">Battle</button>
@@ -635,6 +635,48 @@ const GOD_LIST = [
     ['Serpent Tail', '🐍', 'attack', 'earth', 70, 90, 6, 'weaken', 20, 0, 'Half woman, half serpent.'],
     ['Mending the Sky', '🌈', 'heal', 'earth', 80, 100, 3, 'none', 0, 0, 'She can fix anything.'],
     ['Clay Guardians', '🗿', 'shield', 'earth', 70, 100, 4, 'none', 0, 0, 'She shaped people from clay.']], 'chinese'],
+  // ---- Celtic ----
+  ['lugh', 'Lugh', 'God of Skill and Light', 'sun', '🌟', 105, 115, 95, 110, [
+    ['Spear of Lugh', '🗡️', 'attack', 'sun', 85, 90, 5, 'burn', 15, 0, 'A spear that blazes like fire.'],
+    ['Sling Shot', '🪨', 'attack', 'sun', 55, 100, 6, 'none', 0, 1, 'One stone felled the giant Balor.'],
+    ['Master of All Arts', '🎨', 'rally', 'sun', 70, 100, 3, 'none', 0, 0, 'He is good at everything.'],
+    ['Bright Shield', '🛡️', 'shield', 'sun', 70, 100, 4, 'none', 0, 0, 'It shines like the sun.']], 'celtic'],
+  ['morrigan', 'The Morrígan', 'Goddess of War and Fate', 'war', '🖤', 105, 120, 90, 110, [
+    ['Crow Swarm', '🐦', 'attack', 'war', 70, 90, 6, 'blind', 30, 0, 'A storm of black feathers.'],
+    ["Shapeshifter's Strike", '🐺', 'attack', 'war', 85, 85, 5, 'none', 0, 0, 'Crow, wolf, eel, then goddess.'],
+    ['Prophecy of Doom', '💀', 'curse', 'war', 0, 95, 4, 'weaken', 100, 0, 'She has already seen you lose.'],
+    ['Battle Frenzy', '😤', 'rally', 'war', 70, 100, 3, 'none', 0, 0, 'Her scream fills the battlefield.']], 'celtic'],
+  ['brigid', 'Brigid', 'Goddess of Fire and Poetry', 'forge', '🔥', 110, 105, 105, 100, [
+    ['Sacred Flame', '🔥', 'attack', 'forge', 80, 90, 5, 'burn', 30, 0, 'A fire that never goes out.'],
+    ["Smith's Hammer", '🔨', 'attack', 'forge', 75, 90, 6, 'none', 0, 0, 'She is a blacksmith too.'],
+    ['Healing Well', '💧', 'heal', 'forge', 70, 100, 4, 'none', 0, 0, 'Water from her holy well.'],
+    ["Poet's Inspiration", '📜', 'rally', 'forge', 60, 100, 3, 'none', 0, 0, 'Words that make warriors brave.']], 'celtic'],
+  ['manannan', 'Manannán', 'Lord of the Sea', 'sea', '⛵', 115, 110, 105, 95, [
+    ['Wave Sweeper', '⛵', 'attack', 'sea', 80, 90, 5, 'none', 0, 0, 'His boat needs no oars or sail.'],
+    ['The Answerer', '🗡️', 'attack', 'sea', 85, 95, 4, 'none', 0, 0, 'No one can lie under its blade.'],
+    ['Cloak of Mist', '🌫️', 'curse', 'sea', 0, 100, 5, 'blind', 100, 0, 'The sea fog rolls in.'],
+    ['Silver Branch', '🌿', 'heal', 'sea', 70, 100, 4, 'none', 0, 0, 'Its music heals all pain.']], 'celtic'],
+  // ---- Mayan ----
+  ['chaac', 'Chaac', 'God of Rain and Lightning', 'sky', '⛈️', 115, 115, 100, 90, [
+    ['Lightning Axe', '⚡', 'attack', 'sky', 85, 85, 5, 'stun', 15, 0, 'He splits the clouds with his axe.'],
+    ['Rain Serpent', '🐍', 'attack', 'sea', 70, 90, 6, 'none', 0, 0, 'Rain falls like a snake.'],
+    ['Thunder Clap', '💥', 'curse', 'sky', 0, 85, 3, 'stun', 100, 0, 'Too loud to move.'],
+    ['Storm Gourd', '🏺', 'heal', 'sky', 60, 100, 4, 'none', 0, 0, 'He pours rain from his gourd.']], 'mayan'],
+  ['ixchel', 'Ix Chel', 'Goddess of the Moon', 'moon', '🌙', 105, 100, 105, 110, [
+    ['Moon Rabbit', '🐇', 'attack', 'moon', 70, 95, 6, 'none', 0, 0, 'Her rabbit hops into battle.'],
+    ["Weaver's Web", '🕸️', 'curse', 'moon', 0, 85, 3, 'stun', 100, 0, 'She wove the world, and now you.'],
+    ['Healing Waters', '💧', 'heal', 'moon', 80, 100, 3, 'none', 0, 0, 'The goddess of medicine.'],
+    ['Rainbow Veil', '🌈', 'shield', 'moon', 70, 100, 4, 'none', 0, 0, 'Wrapped in a rainbow.']], 'mayan'],
+  ['ahpuch', 'Ah Puch', 'God of Death', 'underworld', '☠️', 120, 110, 105, 80, [
+    ['Death Rattle', '☠️', 'attack', 'underworld', 80, 90, 5, 'weaken', 20, 0, 'You hear his bells before you see him.'],
+    ['Bone Bells', '🔔', 'attack', 'underworld', 65, 95, 6, 'stun', 15, 0, 'Ring, ring, you are frozen.'],
+    ['Decay', '🍂', 'drain', 'underworld', 60, 90, 5, 'none', 0, 0, 'Everything withers near him.'],
+    ['Owl of Doom', '🦉', 'curse', 'underworld', 0, 90, 4, 'blind', 100, 0, 'The owl is his messenger.']], 'mayan'],
+  ['kinichahau', 'Kinich Ahau', 'God of the Sun', 'sun', '🔆', 110, 115, 95, 100, [
+    ['Jaguar Sun', '🐆', 'attack', 'sun', 80, 90, 5, 'burn', 20, 0, 'At night he becomes a jaguar.'],
+    ['Blazing Gaze', '👁️', 'attack', 'sun', 65, 95, 6, 'blind', 30, 0, 'His eyes burn bright.'],
+    ['Fire Macaw', '🦜', 'attack', 'forge', 60, 100, 6, 'none', 0, 1, 'A bird made of flame.'],
+    ['Noon Glory', '☀️', 'rally', 'sun', 60, 100, 3, 'none', 0, 0, 'The sun at full power.']], 'mayan'],
 ];
 const PANTHEONS = [
   { id: 'greek',    name: 'Greek',    home: 'Olympus',            icon: '🏛️', climb: 'Climb Olympus' },
@@ -643,6 +685,8 @@ const PANTHEONS = [
   { id: 'japanese', name: 'Japanese', home: 'the High Heavens',   icon: '⛩️', climb: 'Rise to the High Heavens' },
   { id: 'aztec',    name: 'Aztec',    home: 'the Great Temple',   icon: '🌽', climb: 'Climb the Great Temple' },
   { id: 'chinese',  name: 'Chinese',  home: 'the Heavenly Court', icon: '🐉', climb: 'Storm the Heavenly Court' },
+  { id: 'celtic',   name: 'Celtic',   home: 'Tír na nÓg',         icon: '🍀', climb: 'Journey to Tír na nÓg' },
+  { id: 'mayan',    name: 'Mayan',    home: 'Chichén Itzá',       icon: '🐆', climb: 'Climb Chichén Itzá' },
 ];
 const PANTHEON = Object.fromEntries(PANTHEONS.map(p => [p.id, p]));
 const WORLD_TOUR = 8;
