@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Clash of Olympus</title>
+<title>Clash of the Gods</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -104,6 +104,13 @@ h3 { font-size: 1.15rem; letter-spacing: .03em; }
 .hero h1 { font-size: clamp(2.4rem, 8vw, 4.6rem); line-height: 1; color: var(--bone); letter-spacing: .02em; }
 .hero h1 span { color: var(--clay); }
 .hero p { max-width: 60ch; margin: 0; color: var(--bone-dim); font-size: 1.08rem; }
+.panhead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 22px 0 4px; }
+.panhead h3 { color: var(--gold); font-size: 1.3rem; }
+.panhead span { color: var(--bone-dim); font-size: .85rem; }
+.pantabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.pantabs button { background: transparent; border: 1px solid #4a3a2a; border-radius: 6px; padding: 6px 12px; font-weight: 700; font-size: .88rem; color: var(--bone-dim); }
+.pantabs button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); background: #2c2115; }
+.picklabel { font-size: .74rem; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: var(--bone-dim); margin: 14px 0 6px; }
 .pantheon { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 8px; }
 .godcard {
   background: var(--clay); color: var(--ink); border: 0; border-radius: 8px; padding: 16px 12px 12px;
@@ -297,7 +304,7 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
 <body>
 <div class="wrap">
   <header class="top">
-    <button class="brand" id="brand" type="button">Clash of Olympus<small>Forge the moves. Fight the gods.</small></button>
+    <button class="brand" id="brand" type="button">Clash of the Gods<small>Forge the moves. Fight the gods.</small></button>
     <nav>
       <button class="navbtn" data-go="home" type="button">Pantheon</button>
       <button class="navbtn" data-go="forge" type="button">Move Forge</button>
@@ -308,15 +315,15 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
   <!-- HOME -->
   <section id="scr-home">
     <div class="hero">
-      <span class="eyebrow">Eighteen gods · four move slots each · you write every move</span>
-      <h1>Clash of <span>Olympus</span></h1>
-      <p>Design the moves for Zeus, Poseidon, Hades and the rest of the pantheon in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
+      <span class="eyebrow">38 gods · 6 mythologies · you write every move</span>
+      <h1>Clash of the <span>Gods</span></h1>
+      <p>Design the moves for Zeus, Thor, Ra, Amaterasu, Quetzalcoatl, Sun Wukong and gods from all over the world in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
       <div class="row">
         <button class="btn gold" type="button" data-go="forge">Forge moves</button>
         <button class="btn ghost" type="button" data-go="setup">Battle</button>
       </div>
     </div>
-    <div class="pantheon" id="pantheon"></div>
+    <div id="pantheon"></div>
     <div class="rules">
       <section>
         <h3>Designing moves</h3>
@@ -346,6 +353,7 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
 
   <!-- FORGE -->
   <section id="scr-forge" hidden>
+    <div class="pantabs" id="pantabs" role="toolbar" aria-label="Choose a mythology"></div>
     <div class="godtabs" id="godtabs" role="toolbar" aria-label="Choose a god"></div>
     <div class="forge">
       <div class="godpanel" id="godpanel"></div>
@@ -522,9 +530,124 @@ const GOD_LIST = [
     ['Winged Charge', '🕊️', 'attack', 'wind', 60, 100, 6, 'none', 0, 1, 'First to the finish.'],
     ['Laurel Crown', '🌿', 'rally', 'war', 60, 100, 3, 'none', 0, 0, 'Crowned before the fight ends.'],
     ["Champion's Glory", '⭐', 'heal', 'war', 60, 100, 4, 'none', 0, 0, 'Winners get back up.']]],
+  // ---- Norse ----
+  ['thor', 'Thor', 'God of Thunder', 'sky', '🌩️', 115, 120, 100, 85, [
+    ['Mjolnir Smash', '🔨', 'attack', 'sky', 90, 85, 5, 'stun', 15, 0, 'The hammer always comes back.'],
+    ['Thunder Charge', '⚡', 'attack', 'sky', 70, 90, 6, 'none', 0, 0, 'Lightning rides with him.'],
+    ['Belt of Strength', '💪', 'rally', 'sky', 70, 100, 3, 'none', 0, 0, 'His magic belt doubles his might.'],
+    ['Goat Feast', '🐐', 'heal', 'sky', 60, 100, 4, 'none', 0, 0, 'His goats are back by morning.']], 'norse'],
+  ['odin', 'Odin', 'The All-Father', 'wisdom', '👁️', 110, 105, 110, 95, [
+    ['Gungnir', '🗡️', 'attack', 'wisdom', 80, 100, 5, 'none', 0, 0, 'His spear never misses.'],
+    ["Ravens' Watch", '🐦', 'curse', 'wisdom', 0, 100, 4, 'blind', 100, 0, 'Huginn and Muninn see everything.'],
+    ['Rune Ward', '🪨', 'shield', 'wisdom', 70, 100, 4, 'none', 0, 0, 'Ancient runes glow.'],
+    ['Sleipnir Ride', '🐎', 'attack', 'wind', 60, 100, 6, 'none', 0, 1, 'Eight legs, no one is faster.']], 'norse'],
+  ['loki', 'Loki', 'The Trickster', 'magic', '🎭', 95, 110, 85, 125, [
+    ["Trickster's Blade", '🗡️', 'attack', 'magic', 70, 95, 6, 'blind', 20, 0, 'Look over there!'],
+    ['Mistletoe Dart', '🌿', 'attack', 'magic', 85, 85, 5, 'weaken', 20, 0, 'The one thing they forgot.'],
+    ['Shapeshift', '🦊', 'curse', 'magic', 0, 85, 3, 'stun', 100, 0, 'Was that a fox or a god?'],
+    ['Wildfire', '🔥', 'attack', 'forge', 65, 90, 6, 'burn', 30, 0, 'His fire spreads fast.']], 'norse'],
+  ['freya', 'Freya', 'Goddess of Love and Battle', 'love', '🌼', 105, 105, 100, 105, [
+    ['Valkyrie Dive', '🛡️', 'attack', 'war', 75, 90, 6, 'none', 0, 1, 'Chosen by the Valkyries.'],
+    ['Cat Chariot', '🐈', 'attack', 'love', 70, 90, 6, 'none', 0, 0, 'Pulled by two giant cats.'],
+    ['Golden Tears', '💛', 'heal', 'love', 70, 100, 4, 'none', 0, 0, 'Her tears turn to gold.'],
+    ['Falcon Cloak', '🦅', 'shield', 'wind', 60, 100, 4, 'none', 0, 0, 'Feathers as hard as iron.']], 'norse'],
+  // ---- Egyptian ----
+  ['ra', 'Ra', 'God of the Sun', 'sun', '🌞', 110, 115, 100, 95, [
+    ['Solar Barque', '⛵', 'attack', 'sun', 85, 90, 5, 'burn', 20, 0, 'His boat sails across the sky.'],
+    ['Eye of Ra', '👁️', 'attack', 'sun', 70, 95, 6, 'blind', 30, 0, 'Do not look into it.'],
+    ['Midday Blaze', '🔥', 'rally', 'sun', 60, 100, 3, 'none', 0, 0, 'The sun at its highest.'],
+    ['Dawn Renewal', '🌅', 'heal', 'sun', 70, 100, 4, 'none', 0, 0, 'Reborn every morning.']], 'egyptian'],
+  ['anubis', 'Anubis', 'Guardian of the Dead', 'underworld', '🐺', 115, 105, 110, 85, [
+    ['Weighing of the Heart', '⚖️', 'curse', 'underworld', 0, 95, 4, 'weaken', 100, 0, 'Is your heart lighter than a feather?'],
+    ['Jackal Strike', '🐺', 'attack', 'underworld', 80, 90, 5, 'none', 0, 0, 'Swift as a desert jackal.'],
+    ['Soul Harvest', '👻', 'drain', 'underworld', 60, 90, 5, 'none', 0, 0, 'The dead belong to him.'],
+    ['Mummy Wrap', '🪢', 'shield', 'underworld', 70, 100, 4, 'none', 0, 0, 'Bound tight in linen.']], 'egyptian'],
+  ['isis', 'Isis', 'Goddess of Magic', 'magic', '🪄', 100, 105, 105, 110, [
+    ['Star of Sirius', '⭐', 'attack', 'magic', 75, 90, 6, 'none', 0, 0, 'The brightest star in the sky.'],
+    ['Secret Name', '🔮', 'curse', 'magic', 0, 90, 3, 'stun', 100, 0, 'She knows your true name.'],
+    ['Ankh of Life', '💚', 'heal', 'magic', 80, 100, 3, 'none', 0, 0, 'The key of life.'],
+    ['Winged Blessing', '🕊️', 'shield', 'magic', 70, 100, 4, 'none', 0, 0, 'Her wings shelter you.']], 'egyptian'],
+  ['set', 'Set', 'God of Storms and Chaos', 'wind', '🏜️', 110, 120, 95, 95, [
+    ['Sandstorm', '🌪️', 'attack', 'wind', 75, 85, 6, 'blind', 30, 0, 'Sand in every eye.'],
+    ['Desert Wrath', '🏜️', 'attack', 'wind', 95, 75, 4, 'none', 0, 0, 'The desert has no mercy.'],
+    ['Chaos Strike', '💥', 'attack', 'war', 85, 85, 5, 'none', 0, 0, 'Nobody knows where it will land.'],
+    ['Lord of Chaos', '😈', 'rally', 'wind', 70, 100, 3, 'none', 0, 0, 'Chaos makes him stronger.']], 'egyptian'],
+  // ---- Japanese ----
+  ['amaterasu', 'Amaterasu', 'Goddess of the Sun', 'sun', '🌅', 105, 110, 100, 105, [
+    ['Rising Sun', '🌅', 'attack', 'sun', 80, 90, 5, 'burn', 20, 0, 'Dawn breaks over the islands.'],
+    ['Heavenly Light', '✨', 'curse', 'sun', 0, 95, 4, 'blind', 100, 0, 'She steps out of the cave.'],
+    ['Sacred Mirror', '🪞', 'shield', 'sun', 70, 100, 5, 'none', 0, 0, 'The mirror reflects all harm.'],
+    ['Sun Blessing', '🌸', 'heal', 'sun', 70, 100, 4, 'none', 0, 0, 'Warm light heals.']], 'japanese'],
+  ['susanoo', 'Susanoo', 'God of Storms and Sea', 'sea', '🌀', 115, 120, 95, 95, [
+    ['Kusanagi Sword', '🗡️', 'attack', 'sea', 85, 90, 5, 'none', 0, 0, 'Pulled from the eight-headed serpent.'],
+    ['Typhoon Wave', '🌊', 'attack', 'sea', 75, 90, 6, 'blind', 20, 0, 'The sea rises with his temper.'],
+    ['Raging Storm', '⛈️', 'attack', 'sky', 70, 85, 6, 'stun', 15, 0, 'Thunder over the waves.'],
+    ['Storm Temper', '😠', 'rally', 'sea', 60, 100, 3, 'none', 0, 0, 'Never make him angry.']], 'japanese'],
+  ['raijin', 'Raijin', 'God of Thunder', 'sky', '🥁', 105, 120, 90, 105, [
+    ['Thunder Drums', '🥁', 'attack', 'sky', 75, 90, 6, 'stun', 15, 0, 'Every drumbeat is a thunderclap.'],
+    ['Lightning Flash', '⚡', 'attack', 'sky', 55, 100, 6, 'none', 0, 1, 'Faster than sight.'],
+    ['Booming Roar', '📢', 'curse', 'sky', 0, 90, 4, 'weaken', 100, 0, 'The whole sky shakes.'],
+    ['Storm Cloud', '☁️', 'shield', 'sky', 60, 100, 4, 'none', 0, 0, 'He hides in the clouds.']], 'japanese'],
+  ['fujin', 'Fujin', 'God of the Wind', 'wind', '🍃', 100, 105, 95, 120, [
+    ['Wind Bag Blast', '💨', 'attack', 'wind', 75, 90, 6, 'none', 0, 0, 'He opens his bag of winds.'],
+    ['Whirlwind', '🌀', 'attack', 'wind', 60, 95, 6, 'blind', 30, 0, 'Round and round.'],
+    ['Gust Step', '🍃', 'attack', 'wind', 50, 100, 8, 'none', 0, 1, 'Here, then gone.'],
+    ['Calm Breeze', '🌬️', 'heal', 'wind', 60, 100, 4, 'none', 0, 0, 'A cool wind soothes.']], 'japanese'],
+  // ---- Aztec ----
+  ['quetzalcoatl', 'Quetzalcoatl', 'The Feathered Serpent', 'wind', '🐍', 110, 110, 100, 105, [
+    ['Feathered Fury', '🪶', 'attack', 'wind', 80, 90, 5, 'none', 0, 0, 'Wings of a bird, fangs of a snake.'],
+    ['Morning Star', '⭐', 'attack', 'sun', 70, 95, 6, 'none', 0, 0, 'He shines at dawn.'],
+    ['Serpent Coil', '🐍', 'curse', 'wind', 0, 85, 3, 'stun', 100, 0, 'Squeezed tight.'],
+    ['Breath of Life', '🌬️', 'heal', 'wind', 70, 100, 4, 'none', 0, 0, 'He breathed life into people.']], 'aztec'],
+  ['huitzilopochtli', 'Huitzilopochtli', 'God of the Sun and War', 'war', '🦅', 105, 125, 90, 100, [
+    ['Fire Serpent', '🔥', 'attack', 'forge', 85, 85, 5, 'burn', 20, 0, 'Xiuhcoatl, the burning snake.'],
+    ['Hummingbird Strike', '🐦', 'attack', 'war', 60, 100, 6, 'none', 0, 1, 'Tiny, fast and fierce.'],
+    ['Obsidian Blade', '🗡️', 'attack', 'war', 80, 90, 5, 'none', 0, 0, 'Sharper than steel.'],
+    ["Warrior's Rage", '😤', 'rally', 'war', 70, 100, 3, 'none', 0, 0, 'The war drums sound.']], 'aztec'],
+  ['tlaloc', 'Tlaloc', 'God of Rain', 'sea', '🌧️', 120, 105, 105, 85, [
+    ['Rainstorm', '🌧️', 'attack', 'sea', 75, 90, 6, 'blind', 20, 0, 'You cannot see through the rain.'],
+    ['Flood', '🌊', 'attack', 'sea', 90, 80, 5, 'none', 0, 0, 'The rivers burst.'],
+    ['Thunder Axe', '⚡', 'attack', 'sky', 70, 90, 5, 'stun', 15, 0, 'Lightning from his axe.'],
+    ['Life-Giving Rain', '💧', 'heal', 'sea', 70, 100, 4, 'none', 0, 0, 'The crops drink and grow.']], 'aztec'],
+  ['mictlantecuhtli', 'Mictlantecuhtli', 'Lord of the Dead', 'underworld', '🦴', 125, 105, 110, 75, [
+    ['Bone Crush', '🦴', 'attack', 'underworld', 85, 85, 5, 'none', 0, 0, 'Rattle, rattle, crunch.'],
+    ['Nine Underworlds', '🌑', 'curse', 'underworld', 0, 90, 4, 'weaken', 100, 0, 'A long journey down.'],
+    ["Death's Grasp", '🖐️', 'drain', 'underworld', 60, 90, 5, 'none', 0, 0, 'A cold, bony hand.'],
+    ['Bone Armor', '🛡️', 'shield', 'underworld', 70, 100, 4, 'none', 0, 0, 'Skeleton strong.']], 'aztec'],
+  // ---- Chinese ----
+  ['wukong', 'Sun Wukong', 'The Monkey King', 'magic', '🐒', 100, 115, 95, 120, [
+    ['Golden Staff', '🪄', 'attack', 'magic', 85, 90, 5, 'none', 0, 0, 'It grows as big as he wants.'],
+    ['Cloud Somersault', '☁️', 'attack', 'wind', 55, 100, 6, 'none', 0, 1, 'Thousands of miles in one flip.'],
+    ['72 Transformations', '🐵', 'curse', 'magic', 0, 85, 3, 'stun', 100, 0, 'Which one is the real monkey?'],
+    ['Monkey Clones', '🐒', 'rally', 'magic', 70, 100, 3, 'none', 0, 0, 'A hundred monkeys from one hair.']], 'chinese'],
+  ['nezha', 'Nezha', 'The Lotus Prince', 'forge', '🌺', 95, 115, 90, 120, [
+    ['Wind Fire Wheels', '🔥', 'attack', 'forge', 60, 100, 6, 'none', 0, 1, 'He rides on wheels of fire.'],
+    ['Fire-Tipped Spear', '🔱', 'attack', 'forge', 80, 90, 5, 'burn', 20, 0, 'Blazing at the tip.'],
+    ['Universe Ring', '⭕', 'attack', 'forge', 70, 90, 6, 'stun', 15, 0, 'A golden ring that knocks gods down.'],
+    ['Lotus Body', '🌺', 'heal', 'forge', 70, 100, 4, 'none', 0, 0, 'Reborn from a lotus flower.']], 'chinese'],
+  ['change', "Chang'e", 'Goddess of the Moon', 'moon', '🐇', 100, 100, 100, 115, [
+    ['Moonbeam', '🌙', 'attack', 'moon', 75, 95, 6, 'none', 0, 0, 'Light from the Moon Palace.'],
+    ['Lunar Glow', '🌕', 'curse', 'moon', 0, 95, 4, 'blind', 100, 0, 'The full moon dazzles.'],
+    ['Jade Rabbit', '🐇', 'heal', 'moon', 70, 100, 4, 'none', 0, 0, 'Her rabbit makes medicine.'],
+    ['Elixir of Immortality', '🧪', 'shield', 'moon', 80, 100, 3, 'none', 0, 0, 'One sip and nothing can hurt her.']], 'chinese'],
+  ['nuwa', 'Nüwa', 'Mother of Humanity', 'earth', '🌈', 125, 100, 115, 80, [
+    ['Five-Color Stones', '💎', 'attack', 'earth', 80, 90, 5, 'none', 0, 0, 'The stones that fixed the sky.'],
+    ['Serpent Tail', '🐍', 'attack', 'earth', 70, 90, 6, 'weaken', 20, 0, 'Half woman, half serpent.'],
+    ['Mending the Sky', '🌈', 'heal', 'earth', 80, 100, 3, 'none', 0, 0, 'She can fix anything.'],
+    ['Clay Guardians', '🗿', 'shield', 'earth', 70, 100, 4, 'none', 0, 0, 'She shaped people from clay.']], 'chinese'],
 ];
-const GODS = GOD_LIST.map(([id, name, title, el, emoji, hp, atk, def, spd, ideas]) => ({
-  id, name, title, el, emoji, hp, atk, def, spd,
+const PANTHEONS = [
+  { id: 'greek',    name: 'Greek',    home: 'Olympus',            icon: '🏛️', climb: 'Climb Olympus' },
+  { id: 'norse',    name: 'Norse',    home: 'Asgard',             icon: '🪓', climb: 'Storm Asgard' },
+  { id: 'egyptian', name: 'Egyptian', home: 'the Nile',           icon: '🏺', climb: 'Conquer the Nile' },
+  { id: 'japanese', name: 'Japanese', home: 'the High Heavens',   icon: '⛩️', climb: 'Rise to the High Heavens' },
+  { id: 'aztec',    name: 'Aztec',    home: 'the Great Temple',   icon: '🌽', climb: 'Climb the Great Temple' },
+  { id: 'chinese',  name: 'Chinese',  home: 'the Heavenly Court', icon: '🐉', climb: 'Storm the Heavenly Court' },
+];
+const PANTHEON = Object.fromEntries(PANTHEONS.map(p => [p.id, p]));
+const WORLD_TOUR = 8;
+const GODS = GOD_LIST.map(([id, name, title, el, emoji, hp, atk, def, spd, ideas, pantheon = 'greek']) => ({
+  id, name, title, el, emoji, hp, atk, def, spd, pantheon,
   ideas: ideas.map(([n, icon, kind, element, power, acc, uses, effect, chance, swift, desc]) =>
     ({ name: n, icon, kind, element, power, acc, uses, effect, chance, priority: !!swift, desc })),
 }));
@@ -552,7 +675,7 @@ const STRUGGLE = { name: 'Desperate Strike', icon: '👊', kind: 'attack', eleme
 
 /* ================= STORAGE ================= */
 const KEY = 'clash-of-olympus-v1';
-const store = { moves: {}, titan: false, lastMe: 'zeus', lastFoe: 'poseidon' };
+const store = { moves: {}, titan: false, lastMe: 'zeus', lastFoe: 'climb:greek' };
 let uid = 0;
 const newId = () => 'm' + Date.now().toString(36) + (uid++).toString(36);
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -594,7 +717,8 @@ function load() {
     store.moves = cleanAll(d.moves);
     store.titan = !!d.titan;
     if (GOD[d.lastMe]) store.lastMe = d.lastMe;
-    if (GOD[d.lastFoe] || d.lastFoe === 'climb') store.lastFoe = d.lastFoe;
+    if (GOD[d.lastFoe] || d.lastFoe === 'climb:world' || PANTHEON[String(d.lastFoe).slice(6)]) store.lastFoe = d.lastFoe;
+    if (d.lastFoe === 'climb') store.lastFoe = 'climb:greek';
   } catch (e) { /* storage unavailable: start fresh */ }
 }
 function save() {
@@ -672,13 +796,15 @@ $('#brand').addEventListener('click', () => go('home'));
 
 /* ================= HOME ================= */
 function renderHome() {
-  $('#pantheon').innerHTML = GODS.map(g => {
-    const n = store.moves[g.id].length;
-    return `<button type="button" class="godcard" data-forge="${g.id}">
-      ${n ? `<span class="count">${n}/${MAX_MOVES}</span>` : ''}
-      ${medal(g)}<b>${g.name}</b><span class="sub">${g.title}</span>${elChip(g.el)}
-    </button>`;
-  }).join('');
+  $('#pantheon').innerHTML = PANTHEONS.map(p => `
+    <div class="panhead"><h3>${p.icon} ${p.name} gods</h3><span>${p.home}</span></div>
+    <div class="pantheon">${GODS.filter(g => g.pantheon === p.id).map(g => {
+      const n = store.moves[g.id].length;
+      return `<button type="button" class="godcard" data-forge="${g.id}">
+        ${n ? `<span class="count">${n}/${MAX_MOVES}</span>` : ''}
+        ${medal(g)}<b>${g.name}</b><span class="sub">${g.title}</span>${elChip(g.el)}
+      </button>`;
+    }).join('')}</div>`).join('');
   $('#matchups').innerHTML = Object.entries(ELEMENTS).filter(([k]) => k !== 'divine').map(([k, e]) =>
     `<div><span style="color:${e.color}">${e.icon} ${e.name}</span> <span class="muted">beats</span> ${e.strong.map(s => ELEMENTS[s].name).join(', ')}</div>`).join('');
 }
@@ -692,7 +818,9 @@ let forgeGod = 'zeus';
 let editing = null; // { slot, draft }
 
 function renderForge() {
-  $('#godtabs').innerHTML = GODS.map(g => `<button type="button" class="godtab" data-god="${g.id}" aria-pressed="${g.id === forgeGod}">
+  const pan = GOD[forgeGod].pantheon;
+  $('#pantabs').innerHTML = PANTHEONS.map(p => `<button type="button" data-pan="${p.id}" aria-pressed="${p.id === pan}">${p.icon} ${p.name}</button>`).join('');
+  $('#godtabs').innerHTML = GODS.filter(g => g.pantheon === pan).map(g => `<button type="button" class="godtab" data-god="${g.id}" aria-pressed="${g.id === forgeGod}">
     ${medal(g)} ${g.name} <span class="n">${store.moves[g.id].length}/${MAX_MOVES}</span></button>`).join('');
   renderGodPanel();
   renderEditor();
@@ -730,6 +858,11 @@ function renderGodPanel() {
     <div class="slots">${slots.join('')}</div>
     ${moves.length ? '' : `<p class="hint" style="color:var(--ink);margin:0">No moves yet. As an opponent, ${g.name} uses ready-made moves until you forge some.</p>`}`;
 }
+$('#pantabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-pan]');
+  if (!b) return;
+  forgeGod = GODS.find(g => g.pantheon === b.dataset.pan).id; editing = null; renderForge();
+});
 $('#godtabs').addEventListener('click', e => {
   const b = e.target.closest('[data-god]');
   if (!b) return;
@@ -935,26 +1068,35 @@ $('#loadcode').addEventListener('click', () => {
 
 /* ================= SETUP ================= */
 function renderSetup() {
-  $('#pickme').innerHTML = GODS.map(g => {
+  const grouped = card => PANTHEONS.map(p => {
+    const cards = GODS.filter(g => g.pantheon === p.id).map(card).join('');
+    return cards ? `<div class="picklabel">${p.icon} ${p.name}</div><div class="pickgrid">${cards}</div>` : '';
+  }).join('');
+  if (store.lastFoe === store.lastMe) store.lastFoe = 'climb:world';
+  $('#pickme').innerHTML = grouped(g => {
     const n = store.moves[g.id].length;
     return `<button type="button" class="pick" data-me="${g.id}" aria-pressed="${store.lastMe === g.id}">${medal(g)}${g.name}<small>${n ? n + ' move' + (n > 1 ? 's' : '') : 'No moves yet'}</small></button>`;
-  }).join('');
-  $('#pickfoe').innerHTML = `<button type="button" class="pick climb" data-foe="climb" aria-pressed="${store.lastFoe === 'climb'}"><span class="medal" style="--c:#e6b84f">🏛️</span>Climb Olympus<small>Beat every other god in a row</small></button>` +
-    GODS.filter(g => g.id !== store.lastMe).map(g => {
+  });
+  const tours = [{ key: 'climb:world', icon: '🌍', name: 'World Tour', sub: `${WORLD_TOUR} random gods from every mythology` }]
+    .concat(PANTHEONS.map(p => ({ key: 'climb:' + p.id, icon: p.icon, name: p.climb, sub: `Beat every ${p.name} god in a row` })));
+  $('#pickfoe').innerHTML = `<div class="picklabel">Gauntlets</div><div class="pickgrid">${tours.map(t =>
+      `<button type="button" class="pick climb" data-foe="${t.key}" aria-pressed="${store.lastFoe === t.key}"><span class="medal" style="--c:#e6b84f">${t.icon}</span>${t.name}<small>${t.sub}</small></button>`).join('')}</div>` +
+    grouped(g => {
+      if (g.id === store.lastMe) return '';
       const n = store.moves[g.id].length;
-      return `<button type="button" class="pick" data-foe="${g.id}" aria-pressed="${store.lastFoe === g.id}">${medal(g)}${g.name}<small>${n ? n + ' forged move' + (n > 1 ? 's' : '') : 'Starter set'}</small></button>`;
-    }).join('');
+      return `<button type="button" class="pick" data-foe="${g.id}" aria-pressed="${store.lastFoe === g.id}">${medal(g)}${g.name}<small>${n ? n + ' forged move' + (n > 1 ? 's' : '') : 'Ready-made moves'}</small></button>`;
+    });
   checkSetup();
 }
 function checkSetup() {
   const n = store.moves[store.lastMe].length;
-  if (store.lastFoe === store.lastMe) store.lastFoe = 'climb';
   const note = $('#setupnote');
   if (!n) {
     note.innerHTML = `${GOD[store.lastMe].name} has no moves. <button class="btn ghost" type="button" id="toforge" style="padding:4px 10px">Forge some</button>`;
     $('#startbtn').disabled = true;
   } else {
-    note.textContent = store.lastFoe === 'climb' ? `${GOD[store.lastMe].name} will face all ${GODS.length - 1} other gods.` : `${GOD[store.lastMe].name} vs ${GOD[store.lastFoe].name}`;
+    const t = gauntlet(store.lastFoe, store.lastMe);
+    note.textContent = t ? `${t.label}: ${GOD[store.lastMe].name} will face ${t.order.length} gods.` : `${GOD[store.lastMe].name} vs ${GOD[store.lastFoe].name}`;
     $('#startbtn').disabled = false;
   }
 }
@@ -969,14 +1111,23 @@ $('#pickfoe').addEventListener('click', e => {
 $('#setupnote').addEventListener('click', e => {
   if (e.target.id === 'toforge') { forgeGod = store.lastMe; editing = null; go('forge'); }
 });
+function shuffle(a) {
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+// A gauntlet is a run of battles in a row; returns null for a single duel
+function gauntlet(key, meId) {
+  if (!key.startsWith('climb:')) return null;
+  const id = key.slice(6);
+  const others = GODS.filter(g => g.id !== meId);
+  if (id === 'world') return { label: 'World Tour', home: 'the World', order: shuffle(others.map(g => g.id)).slice(0, WORLD_TOUR) };
+  const p = PANTHEON[id];
+  return { label: p.climb, home: p.home, order: shuffle(others.filter(g => g.pantheon === id).map(g => g.id)) };
+}
 $('#startbtn').addEventListener('click', () => {
   if (!store.moves[store.lastMe].length) return;
-  let order;
-  if (store.lastFoe === 'climb') {
-    order = GODS.map(g => g.id).filter(id => id !== store.lastMe);
-    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  } else order = [store.lastFoe];
-  startBattle(store.lastMe, order, 0);
+  const t = gauntlet(store.lastFoe, store.lastMe);
+  startBattle(store.lastMe, t ? t.order : [store.lastFoe], 0, t);
 });
 
 /* ================= BATTLE ================= */
@@ -986,8 +1137,8 @@ function makeFighter(godId, side) {
   const moves = battleMoves(godId).map(m => ({ ...m, left: m.uses }));
   return { god: g, side, hp: g.hp * 2, max: g.hp * 2, moves, atkMod: 1, shield: 0, burn: 0, weaken: 0, blind: 0, stun: false, stunImmune: 0 };
 }
-function startBattle(meId, order, idx) {
-  B = { p: makeFighter(meId, 'p'), e: makeFighter(order[idx], 'e'), order, idx, busy: false, over: false, log: [] };
+function startBattle(meId, order, idx, tour = null) {
+  B = { p: makeFighter(meId, 'p'), e: makeFighter(order[idx], 'e'), order, idx, tour, busy: false, over: false, log: [] };
   go('battle');
   $('#result').hidden = true;
   renderFighter(B.p); renderFighter(B.e);
@@ -998,8 +1149,8 @@ function startBattle(meId, order, idx) {
 }
 function renderLadder() {
   const el = $('#ladder');
-  if (B.order.length < 2) { el.innerHTML = `<span class="eyebrow">Duel</span>`; return; }
-  el.innerHTML = `<span class="eyebrow">Climb Olympus</span>` + B.order.map((id, i) =>
+  if (!B.tour) { el.innerHTML = `<span class="eyebrow">Duel</span>`; return; }
+  el.innerHTML = `<span class="eyebrow">${esc(B.tour.label)}</span>` + B.order.map((id, i) =>
     `<span class="dot ${i < B.idx ? 'done' : ''} ${i === B.idx ? 'now' : ''}" title="${GOD[id].name}">${i < B.idx ? '✓' : GOD[id].emoji}</span>`).join('');
 }
 function renderFighter(f) {
@@ -1279,14 +1430,14 @@ async function finish() {
   renderMoves();
   const r = $('#result');
   const last = B.idx >= B.order.length - 1;
-  const climbing = B.order.length > 1;
+  const climbing = !!B.tour;
   let title, text, buttons;
   if (won && climbing && !last) {
     title = 'Victory'; text = `${B.e.god.name} is defeated. Next up: ${GOD[B.order[B.idx + 1]].name}. Your HP and move uses are restored.`;
     buttons = `<button class="btn gold" type="button" data-res="next">Fight ${GOD[B.order[B.idx + 1]].name}</button>`;
   } else if (won && climbing) {
-    title = 'Ruler of Olympus'; text = `${B.p.god.name} defeated all ${B.order.length} gods. The throne is yours.`;
-    buttons = `<button class="btn gold" type="button" data-res="again">Climb again</button>`;
+    title = `Ruler of ${B.tour.home}`; text = `${B.p.god.name} defeated all ${B.order.length} gods. The throne is yours.`;
+    buttons = `<button class="btn gold" type="button" data-res="again">Play again</button>`;
   } else if (won) {
     title = 'Victory'; text = `${B.p.god.name} defeats ${B.e.god.name} with ${B.p.hp} HP to spare.`;
     buttons = `<button class="btn gold" type="button" data-res="rematch">Rematch</button>`;
@@ -1294,7 +1445,7 @@ async function finish() {
     title = 'Defeat'; text = `${B.e.god.name} wins this time. Try sharper moves in the Forge, or a better element matchup.`;
     buttons = `<button class="btn gold" type="button" data-res="rematch">Try again</button>`;
   }
-  r.innerHTML = `<span class="eyebrow">${climbing ? `Climb Olympus · ${B.idx + (won ? 1 : 0)}/${B.order.length}` : 'Duel'}</span>
+  r.innerHTML = `<span class="eyebrow">${climbing ? `${esc(B.tour.label)} · ${B.idx + (won ? 1 : 0)}/${B.order.length}` : 'Duel'}</span>
     <h2>${title}</h2><p>${esc(text)}</p>
     <div class="row" style="justify-content:center">${buttons}
       <button class="btn ghost" type="button" data-res="forge">Move Forge</button>
@@ -1305,8 +1456,8 @@ $('#result').addEventListener('click', e => {
   const b = e.target.closest('[data-res]'); if (!b) return;
   const a = b.dataset.res;
   const meId = B.p.god.id;
-  if (a === 'next') startBattle(meId, B.order, B.idx + 1);
-  else if (a === 'rematch') startBattle(meId, B.order, B.idx);
+  if (a === 'next') startBattle(meId, B.order, B.idx + 1, B.tour);
+  else if (a === 'rematch') startBattle(meId, B.order, B.idx, B.tour);
   else if (a === 'again') $('#startbtn').click();
   else if (a === 'forge') { forgeGod = meId; editing = null; go('forge'); }
   else go('setup');
