@@ -412,16 +412,17 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
 
 /* ================= DATA ================= */
 const ELEMENTS = {
-  sky:        { name: 'Sky',        color: '#f2c94c', icon: '⚡', strong: ['sea', 'war'] },
-  sea:        { name: 'Sea',        color: '#3aa6d0', icon: '🌊', strong: ['forge', 'sun'] },
+  // Core cycle: Lightning > Water > Fire > Wind > Lightning, and Love > War.
+  sky:        { name: 'Lightning',  color: '#f2c94c', icon: '⚡', strong: ['sea', 'moon'] },
+  sea:        { name: 'Water',      color: '#3aa6d0', icon: '🌊', strong: ['forge', 'sun'] },
+  forge:      { name: 'Fire',       color: '#ff7a3d', icon: '🔥', strong: ['wind', 'wisdom'] },
+  wind:       { name: 'Wind',       color: '#5fd3b0', icon: '💨', strong: ['sky', 'love'] },
+  love:       { name: 'Love',       color: '#f07aa6', icon: '🌹', strong: ['war', 'sun'] },
+  war:        { name: 'War',        color: '#e0503f', icon: '⚔️', strong: ['sky', 'forge'] },
   underworld: { name: 'Underworld', color: '#9b6bd1', icon: '💀', strong: ['war', 'love'] },
   sun:        { name: 'Sun',        color: '#f39c34', icon: '☀️', strong: ['underworld', 'moon'] },
   wisdom:     { name: 'Wisdom',     color: '#a9bccb', icon: '🦉', strong: ['underworld', 'wind'] },
-  war:        { name: 'War',        color: '#e0503f', icon: '⚔️', strong: ['love', 'moon'] },
-  moon:       { name: 'Moon',       color: '#c3cdf5', icon: '🌙', strong: ['wind', 'wisdom'] },
-  wind:       { name: 'Wind',       color: '#5fd3b0', icon: '💨', strong: ['forge', 'sky'] },
-  forge:      { name: 'Forge',      color: '#ff7a3d', icon: '🔨', strong: ['sky', 'wisdom'] },
-  love:       { name: 'Love',       color: '#f07aa6', icon: '🌹', strong: ['sea', 'sun'] },
+  moon:       { name: 'Moon',       color: '#c3cdf5', icon: '🌙', strong: ['wisdom', 'sea'] },
   divine:     { name: 'Divine',     color: '#e8dcc0', icon: '✨', strong: [] },
 };
 const weakTo = el => Object.keys(ELEMENTS).filter(k => ELEMENTS[k].strong.includes(el));
