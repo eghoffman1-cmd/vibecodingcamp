@@ -468,6 +468,15 @@ function hostTryStart(){
   if(!isHost) return;
   if(game.players.length < MIN_PLAYERS){ alert(`Need at least ${MIN_PLAYERS} players (have ${game.players.length}).`); return; }
   const roles = buildRoleList(game.players.length);
+  const humanPlayers = game.players.filter(p=>!p.isBot);
+  if(humanPlayers.length===1){
+    // Solo play (you + CPUs only, no one else joined): always make the lone human a Killer.
+    const soloIdx = game.players.findIndex(p=>p.id===humanPlayers[0].id);
+    const killerIdx = roles.findIndex(r=>r==='Killer');
+    if(soloIdx>=0 && killerIdx>=0 && roles[soloIdx]!=='Killer'){
+      [roles[soloIdx], roles[killerIdx]] = [roles[killerIdx], roles[soloIdx]];
+    }
+  }
   game.players.forEach((p,i)=>{ p.role = roles[i]; p.alive=true; p.mayorRevealed=false; });
   game.day = 0;
   const killers = game.players.filter(p=>p.role==='Killer');
