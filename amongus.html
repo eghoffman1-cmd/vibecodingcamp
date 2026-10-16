@@ -92,6 +92,14 @@
     padding: 8px 18px; font-size: 0.9em; pointer-events: none; display: none;
   }
   .prompt-pill kbd { background: #ffcf40; color: #1a1a1a; border-radius: 4px; padding: 1px 6px; font-weight: bold; }
+  .meeting-banner {
+    position: absolute; top: 56px; left: 50%; transform: translateX(-50%);
+    background: rgba(90,10,10,0.92); border: 1px solid #ff5b5b; border-radius: 20px;
+    padding: 9px 20px; font-size: 0.9em; font-weight: bold; cursor: pointer; pointer-events: auto;
+    animation: pulseBanner 1.4s ease-in-out infinite;
+  }
+  @keyframes pulseBanner { 0%,100% { box-shadow: 0 0 0 0 rgba(255,91,91,0.5); } 50% { box-shadow: 0 0 0 8px rgba(255,91,91,0); } }
+  @media (prefers-reduced-motion: reduce) { .meeting-banner { animation: none; } }
 
   #controlsHint {
     position: absolute; bottom: 10px; right: 10px; background: rgba(10,12,24,0.6); border-radius: 8px;
@@ -249,6 +257,7 @@
       </div>
     </div>
     <div id="promptPill" class="prompt-pill"></div>
+    <div id="meetingBanner" class="meeting-banner" style="display:none;">🚨 Meeting in progress &mdash; click to vote (<span id="meetingBannerTimer">8</span>s)</div>
     <div id="controlsHint">WASD/Arrows move &middot; E interact &middot; Q kill &middot; R report body</div>
     <div id="netStatus"></div>
 
@@ -275,13 +284,15 @@
 
   <!-- MEETING MODAL -->
   <div class="modal-overlay" id="meetingModal">
-    <div class="modal-box" style="width:min(560px,94vw);">
+    <div class="modal-box" style="width:min(560px,94vw); position:relative;">
+      <span class="close-x" id="meetingCloseBtn" style="position:absolute; top:12px; right:16px; font-size:1.1em;">✕</span>
       <div class="meeting-header" id="meetingHeader">EMERGENCY MEETING</div>
       <div id="meetingReason"></div>
       <div id="meetingTimer">15</div>
       <div id="discussFeed"></div>
       <div id="voteList"></div>
       <button class="game-btn danger" id="skipVoteBtn" style="display:none;">Skip Vote</button>
+      <div class="help-text" style="margin-top:10px;">You don't have to stay &mdash; close this and keep moving. Reopen it anytime before the timer runs out to vote.</div>
     </div>
   </div>
 
@@ -911,6 +922,14 @@ window.closePanels = function(){
 };
 document.getElementById('playerListBtn').onclick = ()=>togglePanel('playerPanel');
 document.getElementById('taskListBtn').onclick = ()=>togglePanel('taskPanel');
+document.getElementById('meetingCloseBtn').onclick = ()=>{
+  document.getElementById('meetingModal').style.display = 'none';
+  updateMeetingBanner();
+};
+document.getElementById('meetingBanner').onclick = ()=>{
+  document.getElementById('meetingModal').style.display = 'flex';
+  updateMeetingBanner();
+};
 
 function renderPlayerList(){
   const wrap = document.getElementById('playerListContent');
@@ -964,7 +983,7 @@ function tryInteract(){
     openTaskMinigame(station, true); // fake task, cosmetic only
     return;
   }
-  if(nearEmergencyTable(m) && state.emergencyUsesLeft > 0){
+  if(nearEmergencyTable(m) && state.emergencyUsesLeft > 0 && !state.meeting){
     requestEmergencyMeeting();
   }
 }
@@ -1160,12 +1179,13 @@ function applyMeetingStartUI(reason, reporterName, victimName){
   document.getElementById('skipVoteBtn').style.display = 'none';
   document.getElementById('meetingTimer').textContent = 8;
   document.getElementById('meetingModal').style.display = 'flex';
+  updateMeetingBanner();
 
   // cosmetic flavor chatter, generated locally by each client from bots it knows about
   const feed = document.getElementById('discussFeed');
   state.entities.filter(e=>e.alive && e.isBot).forEach((e,i)=>{
     setTimeout(()=>{
-      if(state.screen !== 'meeting') return;
+      if(!state.meeting) return;
       const line = document.createElement('div');
       line.textContent = `${e.name}: ${CHATTER_POOL[Math.floor(Math.random()*CHATTER_POOL.length)]}`;
       feed.appendChild(line);
@@ -1175,7 +1195,8 @@ function applyMeetingStartUI(reason, reporterName, victimName){
 }
 
 function hostTriggerMeeting(reason, reporter, body){
-  state.screen = 'meeting';
+  // screen stays 'playing' on purpose: nobody is forced to sit in the meeting,
+  // movement/tasks/kills keep working, and the meeting resolves in the background
   const meeting = {
     reason, reporterName: reporter.name, victimName: body ? body.victimName : null,
     votes:{}, phase:'discuss', timer:8, voteTimer:20, tickAccum:0,
@@ -1187,13 +1208,24 @@ function hostTriggerMeeting(reason, reporter, body){
 }
 
 function clientApplyMeetingStart(data){
-  state.screen = 'meeting';
   state.meeting = {phase:'discuss'};
   applyMeetingStartUI(data.reason, data.reporterName, data.victimName);
 }
 
 function clientApplyMeetingTick(data){
   document.getElementById('meetingTimer').textContent = data.timer;
+  updateMeetingBanner();
+}
+
+function updateMeetingBanner(){
+  const banner = document.getElementById('meetingBanner');
+  const modalOpen = document.getElementById('meetingModal').style.display === 'flex';
+  if(state && state.meeting && !modalOpen){
+    banner.style.display = 'block';
+    document.getElementById('meetingBannerTimer').textContent = document.getElementById('meetingTimer').textContent;
+  } else {
+    banner.style.display = 'none';
+  }
 }
 
 function applyVotingStartUI(roster){
@@ -1315,15 +1347,20 @@ function resolveVotes(){
   applyEjectionUI(tie, ejectedName, wasImpostor);
   broadcast({type:'ejection', tie, ejectedId, ejectedName, wasImpostor});
 
-  document.getElementById('ejectContinueBtn').onclick = ()=>{
+  let advanced = false;
+  function advanceOnce(){
+    if(advanced) return;
+    advanced = true;
     document.getElementById('ejectModal').style.display = 'none';
     state.meeting = null;
+    updateMeetingBanner();
     if(!checkWinConditions()){
       resetPositionsToCafeteria();
-      state.screen = 'playing';
       broadcast({type:'resumePlaying', entities: state.entities.map(e=>({id:e.id,x:e.x,y:e.y}))});
     }
-  };
+  }
+  document.getElementById('ejectContinueBtn').onclick = advanceOnce;
+  setTimeout(advanceOnce, 6000); // don't stall the game if nobody's watching the result
 }
 
 function clientApplyEjection(data){
@@ -1332,15 +1369,20 @@ function clientApplyEjection(data){
     if(e) e.alive = false;
   }
   applyEjectionUI(data.tie, data.ejectedName, data.wasImpostor);
-  document.getElementById('ejectContinueBtn').onclick = ()=>{
+  let dismissed = false;
+  function dismissOnce(){
+    if(dismissed) return;
+    dismissed = true;
     document.getElementById('ejectModal').style.display = 'none';
-  };
+  }
+  document.getElementById('ejectContinueBtn').onclick = dismissOnce;
+  setTimeout(dismissOnce, 6000);
 }
 
 function clientApplyResume(data){
   document.getElementById('ejectModal').style.display = 'none';
   state.meeting = null;
-  state.screen = 'playing';
+  updateMeetingBanner();
   data.entities.forEach(u=>{
     const ent = state.entities[u.id];
     if(ent){ ent.x = u.x; ent.y = u.y; }
@@ -1420,7 +1462,7 @@ function hostApplyKillAttempt(killer, targetId){
 }
 
 function hostApplyReport(reporter, bodyIndex){
-  if(!reporter) return;
+  if(!reporter || state.meeting) return;
   const bodyRec = state.bodies[bodyIndex];
   if(!bodyRec || bodyRec.reported) return;
   bodyRec.reported = true;
@@ -1428,7 +1470,7 @@ function hostApplyReport(reporter, bodyIndex){
 }
 
 function hostApplyEmergency(reporter){
-  if(!reporter || !reporter.alive || state.emergencyUsesLeft <= 0 || state.screen !== 'playing') return;
+  if(!reporter || !reporter.alive || state.emergencyUsesLeft <= 0 || state.meeting) return;
   state.emergencyUsesLeft--;
   hostTriggerMeeting('emergency', reporter, null);
 }
@@ -1502,6 +1544,7 @@ function stepBot(bot, dt){
 }
 
 function hostBotsDetectBodies(){
+  if(state.meeting) return; // don't let a bot call a second meeting over the one already running
   state.entities.forEach(botEntity=>{
     if(!botEntity.alive || !botEntity.isBot) return;
     state.bodies.forEach((b,idx)=>{
@@ -1537,14 +1580,14 @@ function updatePrompt(){
   const pill = document.getElementById('promptPill');
   if(!m.alive){ pill.style.display='none'; return; }
   const {station, d} = nearestStationTo(m);
-  const bodyNearby = state.bodies.some(b=>!b.reported && dist(m,b) < REPORT_RADIUS);
+  const bodyNearby = !state.meeting && state.bodies.some(b=>!b.reported && dist(m,b) < REPORT_RADIUS);
   if(bodyNearby){
     pill.innerHTML = `<kbd>R</kbd> Report body`;
     pill.style.display = 'block';
   } else if(station && d < INTERACT_RADIUS){
     pill.innerHTML = `<kbd>E</kbd> ${station.name}`;
     pill.style.display = 'block';
-  } else if(nearEmergencyTable(m) && state.emergencyUsesLeft>0){
+  } else if(nearEmergencyTable(m) && state.emergencyUsesLeft>0 && !state.meeting){
     pill.innerHTML = `<kbd>E</kbd> Call Emergency Meeting`;
     pill.style.display = 'block';
   } else {
@@ -1720,7 +1763,7 @@ function loop(ts){
     updateKillHud();
   }
 
-  if(state.screen === 'meeting' && NET.isHost && state.meeting){
+  if(NET.isHost && state.meeting && !state.meeting.resolved){
     const meeting = state.meeting;
     if(meeting.phase==='discuss'){
       meeting.timer -= dt;
@@ -1742,6 +1785,7 @@ function loop(ts){
         resolveVotes();
       }
     }
+    updateMeetingBanner();
   }
 
   updateCamera();
