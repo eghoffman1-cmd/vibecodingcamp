@@ -273,7 +273,7 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
 .log p { margin: 0; opacity: .5; }
 .log p:last-child { opacity: 1; font-weight: 700; }
 .moves { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.plate .chip { background: var(--ink); color: var(--bone); border-color: var(--ink); }
+.godcard .chip, .plate .chip { background: var(--ink); color: var(--bone); border-color: var(--ink); }
 .hpv { white-space: nowrap; }
 @media (max-width: 520px) {
   .moves { grid-template-columns: minmax(0, 1fr); }
@@ -308,7 +308,7 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
   <!-- HOME -->
   <section id="scr-home">
     <div class="hero">
-      <span class="eyebrow">Ten gods · four move slots each · you write every move</span>
+      <span class="eyebrow">Eighteen gods · four move slots each · you write every move</span>
       <h1>Clash of <span>Olympus</span></h1>
       <p>Design the moves for Zeus, Poseidon, Hades and the rest of the pantheon in the Move Forge. Every move costs divine power, so you choose: raw power, accuracy, extra uses or nasty side effects. Then pick a champion and battle the other gods.</p>
       <div class="row">
@@ -378,7 +378,7 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
       <div>
         <span class="eyebrow">Step 2</span>
         <h2>Choose your opponent</h2>
-        <p class="hint" style="margin:4px 0 12px">Opponents use the moves you forged for them. A god with no forged moves fights with a starter set.</p>
+        <p class="hint" style="margin:4px 0 12px">Opponents use the moves you forged for them. A god with no forged moves fights with its own ready-made moves.</p>
         <div class="pickgrid" id="pickfoe"></div>
       </div>
       <div class="row">
@@ -412,43 +412,122 @@ input[type="range"] { width: 100%; accent-color: var(--clay); }
 
 /* ================= DATA ================= */
 const ELEMENTS = {
-  // Core cycle: Lightning > Water > Fire > Wind > Lightning, and Love > War.
+  // Your rules: Lightning > Water > Fire > Wind > Lightning, Love > War, Sun > Wind.
+  // Every element beats two and is weak to two.
   sky:        { name: 'Lightning',  color: '#f2c94c', icon: '⚡', strong: ['sea', 'moon'] },
-  sea:        { name: 'Water',      color: '#3aa6d0', icon: '🌊', strong: ['forge', 'sun'] },
+  sea:        { name: 'Water',      color: '#3aa6d0', icon: '🌊', strong: ['forge', 'earth'] },
   forge:      { name: 'Fire',       color: '#ff7a3d', icon: '🔥', strong: ['wind', 'wisdom'] },
   wind:       { name: 'Wind',       color: '#5fd3b0', icon: '💨', strong: ['sky', 'love'] },
   love:       { name: 'Love',       color: '#f07aa6', icon: '🌹', strong: ['war', 'sun'] },
-  war:        { name: 'War',        color: '#e0503f', icon: '⚔️', strong: ['sky', 'forge'] },
+  war:        { name: 'War',        color: '#e0503f', icon: '⚔️', strong: ['magic', 'moon'] },
   underworld: { name: 'Underworld', color: '#9b6bd1', icon: '💀', strong: ['war', 'love'] },
-  sun:        { name: 'Sun',        color: '#f39c34', icon: '☀️', strong: ['underworld', 'moon'] },
-  wisdom:     { name: 'Wisdom',     color: '#a9bccb', icon: '🦉', strong: ['underworld', 'wind'] },
+  sun:        { name: 'Sun',        color: '#f39c34', icon: '☀️', strong: ['wind', 'underworld'] },
+  wisdom:     { name: 'Wisdom',     color: '#a9bccb', icon: '🦉', strong: ['underworld', 'magic'] },
   moon:       { name: 'Moon',       color: '#c3cdf5', icon: '🌙', strong: ['wisdom', 'sea'] },
+  earth:      { name: 'Earth',      color: '#b08a4f', icon: '🪨', strong: ['sky', 'forge'] },
+  magic:      { name: 'Magic',      color: '#b4e04a', icon: '🔮', strong: ['sun', 'earth'] },
   divine:     { name: 'Divine',     color: '#e8dcc0', icon: '✨', strong: [] },
 };
 const weakTo = el => Object.keys(ELEMENTS).filter(k => ELEMENTS[k].strong.includes(el));
 
-const GODS = [
-  { id: 'zeus', name: 'Zeus', title: 'King of the Gods', el: 'sky', emoji: '⚡', hp: 110, atk: 115, def: 95, spd: 100,
-    starter: { name: 'Thunderbolt', icon: '⚡', kind: 'attack', element: 'sky', power: 80, acc: 85, uses: 6, effect: 'stun', chance: 20, priority: false, desc: 'The sky splits open.' } },
-  { id: 'poseidon', name: 'Poseidon', title: 'Lord of the Sea', el: 'sea', emoji: '🔱', hp: 120, atk: 110, def: 100, spd: 85,
-    starter: { name: 'Tidal Crash', icon: '🌊', kind: 'attack', element: 'sea', power: 75, acc: 90, uses: 6, effect: 'blind', chance: 30, priority: false, desc: 'A wall of salt water.' } },
-  { id: 'hades', name: 'Hades', title: 'Ruler of the Underworld', el: 'underworld', emoji: '💀', hp: 125, atk: 105, def: 110, spd: 75,
-    starter: { name: 'Soul Siphon', icon: '👻', kind: 'drain', element: 'underworld', power: 55, acc: 90, uses: 6, effect: 'none', chance: 0, priority: false, desc: 'Your life is mine now.' } },
-  { id: 'apollo', name: 'Apollo', title: 'God of the Sun and Music', el: 'sun', emoji: '☀️', hp: 100, atk: 105, def: 90, spd: 110,
-    starter: { name: 'Solar Arrow', icon: '🌞', kind: 'attack', element: 'sun', power: 70, acc: 95, uses: 6, effect: 'burn', chance: 30, priority: false, desc: 'Noon in a single shot.' } },
-  { id: 'athena', name: 'Athena', title: 'Goddess of Wisdom', el: 'wisdom', emoji: '🦉', hp: 105, atk: 95, def: 120, spd: 95,
-    starter: { name: 'Aegis', icon: '🛡️', kind: 'shield', element: 'wisdom', power: 70, acc: 100, uses: 5, effect: 'none', chance: 0, priority: false, desc: 'The shield of the gods.' } },
-  { id: 'ares', name: 'Ares', title: 'God of War', el: 'war', emoji: '⚔️', hp: 105, atk: 125, def: 85, spd: 100,
-    starter: { name: 'Battle Fury', icon: '😤', kind: 'rally', element: 'war', power: 60, acc: 100, uses: 3, effect: 'none', chance: 0, priority: false, desc: 'Blood boils, blades sharpen.' } },
-  { id: 'artemis', name: 'Artemis', title: 'Goddess of the Hunt', el: 'moon', emoji: '🏹', hp: 95, atk: 110, def: 85, spd: 120,
-    starter: { name: 'Moonlit Volley', icon: '🏹', kind: 'attack', element: 'moon', power: 60, acc: 100, uses: 8, effect: 'none', chance: 0, priority: true, desc: 'Silver arrows, never missing.' } },
-  { id: 'hermes', name: 'Hermes', title: 'Messenger of the Gods', el: 'wind', emoji: '🪶', hp: 90, atk: 100, def: 85, spd: 135,
-    starter: { name: 'Gale Dash', icon: '💨', kind: 'attack', element: 'wind', power: 55, acc: 100, uses: 8, effect: 'none', chance: 0, priority: true, desc: 'Gone before you blink.' } },
-  { id: 'hephaestus', name: 'Hephaestus', title: 'God of the Forge', el: 'forge', emoji: '🔨', hp: 120, atk: 110, def: 115, spd: 65,
-    starter: { name: 'Molten Hammer', icon: '🔥', kind: 'attack', element: 'forge', power: 90, acc: 80, uses: 5, effect: 'burn', chance: 20, priority: false, desc: 'Fresh from the anvil.' } },
-  { id: 'aphrodite', name: 'Aphrodite', title: 'Goddess of Love', el: 'love', emoji: '🌹', hp: 105, atk: 95, def: 95, spd: 110,
-    starter: { name: "Heart's Charm", icon: '💘', kind: 'curse', element: 'love', power: 0, acc: 90, uses: 4, effect: 'weaken', chance: 100, priority: false, desc: 'Who could fight someone so lovely?' } },
+// Move ideas: [name, icon, kind, element, power, acc, uses, effect, chance, swift, battle cry]
+const GOD_LIST = [
+  ['zeus', 'Zeus', 'King of the Gods', 'sky', '⚡', 110, 115, 95, 100, [
+    ['Thunderbolt', '⚡', 'attack', 'sky', 80, 85, 6, 'stun', 20, 0, 'The sky splits open.'],
+    ['Eagle Dive', '🦅', 'attack', 'sky', 55, 100, 6, 'none', 0, 1, 'His eagle always strikes first.'],
+    ['Storm Shield', '🌩️', 'shield', 'sky', 70, 100, 4, 'none', 0, 0, 'Thunderclouds gather around him.'],
+    ["King's Command", '👑', 'rally', 'sky', 60, 100, 3, 'none', 0, 0, 'All of Olympus obeys.']]],
+  ['poseidon', 'Poseidon', 'Lord of the Sea', 'sea', '🔱', 120, 110, 100, 85, [
+    ['Tidal Crash', '🌊', 'attack', 'sea', 75, 90, 6, 'blind', 30, 0, 'A wall of salt water.'],
+    ['Trident Thrust', '🔱', 'attack', 'sea', 85, 85, 5, 'none', 0, 0, 'Three points, no mercy.'],
+    ['Earthquake', '🪨', 'attack', 'earth', 70, 80, 5, 'stun', 20, 0, 'The Earth-Shaker stamps his foot.'],
+    ['Healing Tide', '🐚', 'heal', 'sea', 60, 100, 3, 'none', 0, 0, 'The sea washes the wounds away.']]],
+  ['hades', 'Hades', 'Ruler of the Underworld', 'underworld', '💀', 125, 105, 110, 75, [
+    ['Soul Siphon', '👻', 'drain', 'underworld', 55, 90, 6, 'none', 0, 0, 'Your life is mine now.'],
+    ['Cerberus Bite', '🐕', 'attack', 'underworld', 80, 90, 5, 'weaken', 20, 0, 'Three heads, one bite.'],
+    ['River Styx', '🌀', 'attack', 'underworld', 70, 85, 6, 'none', 0, 0, 'Dragged into the dark river.'],
+    ['Helm of Darkness', '🌑', 'curse', 'underworld', 0, 90, 4, 'blind', 100, 0, 'Now you see him. Now you don’t.']]],
+  ['apollo', 'Apollo', 'God of the Sun and Music', 'sun', '☀️', 100, 105, 90, 110, [
+    ['Solar Arrow', '🌞', 'attack', 'sun', 70, 95, 6, 'burn', 30, 0, 'Noon in a single shot.'],
+    ['Chariot of the Sun', '☀️', 'attack', 'sun', 90, 80, 5, 'burn', 10, 0, 'The sun itself rides into battle.'],
+    ['Healing Hymn', '🎵', 'heal', 'sun', 70, 100, 4, 'none', 0, 0, 'A song that mends.'],
+    ["Oracle's Warning", '👁️', 'shield', 'sun', 60, 100, 3, 'none', 0, 0, 'He saw this coming.']]],
+  ['athena', 'Athena', 'Goddess of Wisdom', 'wisdom', '🦉', 105, 95, 120, 95, [
+    ['Aegis', '🛡️', 'shield', 'wisdom', 70, 100, 5, 'none', 0, 0, 'The shield of the gods.'],
+    ['Spear of Wisdom', '🗡️', 'attack', 'wisdom', 75, 95, 6, 'none', 0, 0, 'Every strike is planned.'],
+    ["Owl's Insight", '🦉', 'curse', 'wisdom', 0, 95, 5, 'blind', 100, 0, 'The owl sees your weakness.'],
+    ['Battle Strategy', '📜', 'rally', 'wisdom', 70, 100, 3, 'none', 0, 0, 'Think first, then win.']]],
+  ['ares', 'Ares', 'God of War', 'war', '⚔️', 105, 125, 85, 100, [
+    ['Spear of Ares', '⚔️', 'attack', 'war', 90, 85, 5, 'none', 0, 0, 'Straight through the shield wall.'],
+    ['Bloodlust', '🩸', 'drain', 'war', 60, 85, 5, 'none', 0, 0, 'Battle makes him stronger.'],
+    ['Battle Fury', '😤', 'rally', 'war', 60, 100, 3, 'none', 0, 0, 'Blood boils, blades sharpen.'],
+    ['War Cry', '📯', 'curse', 'war', 0, 90, 4, 'weaken', 100, 0, 'Enemies tremble at the sound.']]],
+  ['artemis', 'Artemis', 'Goddess of the Hunt', 'moon', '🏹', 95, 110, 85, 120, [
+    ['Moonlit Volley', '🏹', 'attack', 'moon', 60, 100, 8, 'none', 0, 1, 'Silver arrows, never missing.'],
+    ['Silver Arrow', '🌙', 'attack', 'moon', 80, 90, 5, 'none', 0, 0, 'One shot, one hunt.'],
+    ['Call of the Wild', '🐺', 'attack', 'moon', 70, 85, 5, 'weaken', 30, 0, 'Her wolves answer.'],
+    ["Hunter's Trap", '🕸️', 'curse', 'moon', 0, 80, 3, 'stun', 100, 0, 'Caught in the net.']]],
+  ['hermes', 'Hermes', 'Messenger of the Gods', 'wind', '🪶', 90, 100, 85, 135, [
+    ['Gale Dash', '💨', 'attack', 'wind', 55, 100, 8, 'none', 0, 1, 'Gone before you blink.'],
+    ['Caduceus Strike', '🐍', 'attack', 'wind', 75, 90, 6, 'stun', 15, 0, 'Twin serpents strike.'],
+    ["Trickster's Swap", '🎭', 'curse', 'wind', 0, 100, 5, 'blind', 100, 0, 'Wait, where did he go?'],
+    ['Winged Sandals', '🪶', 'rally', 'wind', 50, 100, 4, 'none', 0, 0, 'Speed becomes strength.']]],
+  ['hephaestus', 'Hephaestus', 'God of the Forge', 'forge', '🔨', 120, 110, 115, 65, [
+    ['Molten Hammer', '🔨', 'attack', 'forge', 90, 80, 5, 'burn', 20, 0, 'Fresh from the anvil.'],
+    ['Volcano Blast', '🌋', 'attack', 'forge', 100, 75, 4, 'burn', 30, 0, 'His workshop erupts.'],
+    ['Bronze Shield', '🛡️', 'shield', 'forge', 80, 100, 4, 'none', 0, 0, 'Forged for exactly this moment.'],
+    ['Golden Automaton', '🤖', 'rally', 'forge', 60, 100, 3, 'none', 0, 0, 'His metal servants join the fight.']]],
+  ['aphrodite', 'Aphrodite', 'Goddess of Love', 'love', '🌹', 105, 95, 95, 110, [
+    ["Heart's Charm", '💘', 'curse', 'love', 0, 90, 4, 'weaken', 100, 0, 'Who could fight someone so lovely?'],
+    ['Rose Thorns', '🌹', 'attack', 'love', 70, 95, 6, 'none', 0, 0, 'Every rose has them.'],
+    ['Dazzling Beauty', '✨', 'attack', 'love', 60, 90, 6, 'blind', 40, 0, 'Too beautiful to look at.'],
+    ['Kiss of Life', '💋', 'heal', 'love', 70, 100, 4, 'none', 0, 0, 'Love heals all.']]],
+  ['hera', 'Hera', 'Queen of the Gods', 'love', '🦚', 115, 100, 110, 90, [
+    ["Queen's Wrath", '👑', 'attack', 'love', 85, 85, 5, 'none', 0, 0, 'Never anger the queen.'],
+    ["Peacock's Gaze", '🦚', 'curse', 'love', 0, 85, 3, 'stun', 100, 0, 'A hundred eyes stare you down.'],
+    ['Sacred Vow', '💍', 'shield', 'love', 70, 100, 4, 'none', 0, 0, 'A promise no one can break.'],
+    ['Royal Decree', '📜', 'rally', 'love', 70, 100, 3, 'none', 0, 0, 'By order of the queen.']]],
+  ['demeter', 'Demeter', 'Goddess of the Harvest', 'earth', '🌾', 125, 95, 110, 80, [
+    ['Rolling Earth', '🪨', 'attack', 'earth', 80, 90, 5, 'none', 0, 0, 'The fields rise up.'],
+    ['Endless Winter', '❄️', 'attack', 'earth', 65, 90, 5, 'stun', 20, 0, 'Nothing grows. Nothing moves.'],
+    ['Thorny Vines', '🌿', 'drain', 'earth', 55, 90, 6, 'none', 0, 0, 'The roots drink deep.'],
+    ['Harvest Bounty', '🌾', 'heal', 'earth', 80, 100, 3, 'none', 0, 0, 'A full table restores all.']]],
+  ['dionysus', 'Dionysus', 'God of Wine and Madness', 'magic', '🍇', 115, 105, 95, 95, [
+    ['Maddening Song', '🎶', 'attack', 'magic', 75, 85, 6, 'stun', 15, 0, 'You can’t stop dancing.'],
+    ['Vine Whip', '🍇', 'attack', 'earth', 70, 95, 6, 'none', 0, 0, 'Grapevines crack like whips.'],
+    ['Wine Frenzy', '🍷', 'curse', 'magic', 0, 90, 5, 'blind', 100, 0, 'Everything is spinning.'],
+    ['Wild Revel', '🎉', 'rally', 'magic', 70, 100, 3, 'none', 0, 0, 'The party gets wilder.']]],
+  ['hestia', 'Hestia', 'Goddess of the Hearth', 'forge', '🕯️', 120, 90, 115, 85, [
+    ['Hearthfire', '🔥', 'attack', 'forge', 70, 95, 6, 'burn', 30, 0, 'The home fire bites back.'],
+    ['Warm Embrace', '🕯️', 'heal', 'forge', 70, 100, 5, 'none', 0, 0, 'Come in from the cold.'],
+    ['Eternal Flame', '🏮', 'shield', 'forge', 70, 100, 5, 'none', 0, 0, 'Her fire never goes out.'],
+    ['Home Ground', '🏠', 'rally', 'forge', 50, 100, 4, 'none', 0, 0, 'Strongest at home.']]],
+  ['persephone', 'Persephone', 'Goddess of Spring', 'earth', '🌸', 105, 105, 100, 100, [
+    ['Thorn Burst', '🌱', 'attack', 'earth', 75, 90, 6, 'none', 0, 0, 'Spring bursts from the ground.'],
+    ['Queen of Shadows', '🌑', 'drain', 'underworld', 60, 90, 5, 'none', 0, 0, 'Half the year she rules the dead.'],
+    ['Pomegranate Curse', '🍎', 'curse', 'underworld', 0, 90, 4, 'weaken', 100, 0, 'Six seeds bind you.'],
+    ['Spring Bloom', '🌸', 'heal', 'earth', 70, 100, 4, 'none', 0, 0, 'Flowers heal what winter broke.']]],
+  ['hecate', 'Hecate', 'Goddess of Magic', 'magic', '🔮', 100, 115, 90, 105, [
+    ['Hex Bolt', '🔮', 'attack', 'magic', 80, 90, 5, 'burn', 20, 0, 'A spell with a sting.'],
+    ['Crossroads Curse', '🗝️', 'curse', 'magic', 0, 90, 3, 'stun', 100, 0, 'Every path leads nowhere.'],
+    ['Torchlight', '🔥', 'attack', 'forge', 65, 95, 6, 'blind', 20, 0, 'Her twin torches flare.'],
+    ['Moon Ritual', '🌙', 'heal', 'magic', 60, 100, 4, 'none', 0, 0, 'Chanted under a full moon.']]],
+  ['nyx', 'Nyx', 'Goddess of the Night', 'moon', '🌌', 110, 110, 100, 100, [
+    ['Shadow Strike', '🌑', 'attack', 'moon', 80, 90, 5, 'none', 0, 0, 'From the dark, without a sound.'],
+    ['Dream Drain', '💤', 'drain', 'moon', 60, 90, 5, 'none', 0, 0, 'Sleep feeds her.'],
+    ['Endless Night', '🌌', 'curse', 'moon', 0, 100, 5, 'blind', 100, 0, 'Even the gods fear her dark.'],
+    ['Star Veil', '✨', 'shield', 'moon', 70, 100, 5, 'none', 0, 0, 'Wrapped in starlight.']]],
+  ['nike', 'Nike', 'Goddess of Victory', 'war', '🏆', 100, 110, 95, 115, [
+    ['Victory Strike', '🏆', 'attack', 'war', 75, 95, 6, 'none', 0, 0, 'She does not lose.'],
+    ['Winged Charge', '🕊️', 'attack', 'wind', 60, 100, 6, 'none', 0, 1, 'First to the finish.'],
+    ['Laurel Crown', '🌿', 'rally', 'war', 60, 100, 3, 'none', 0, 0, 'Crowned before the fight ends.'],
+    ["Champion's Glory", '⭐', 'heal', 'war', 60, 100, 4, 'none', 0, 0, 'Winners get back up.']]],
 ];
+const GODS = GOD_LIST.map(([id, name, title, el, emoji, hp, atk, def, spd, ideas]) => ({
+  id, name, title, el, emoji, hp, atk, def, spd,
+  ideas: ideas.map(([n, icon, kind, element, power, acc, uses, effect, chance, swift, desc]) =>
+    ({ name: n, icon, kind, element, power, acc, uses, effect, chance, priority: !!swift, desc })),
+}));
 const GOD = Object.fromEntries(GODS.map(g => [g.id, g]));
 
 const KINDS = {
@@ -466,7 +545,7 @@ const EFFECTS = {
   weaken: { label: 'Weaken', icon: '💔', cost: 8,  hint: 'Their attack drops 25% for 3 turns.' },
   blind:  { label: 'Blind',  icon: '🌫️', cost: 8,  hint: 'Their accuracy drops by 30 for 3 turns.' },
 };
-const ICONS = ['⚡','🌩️','🔱','🌊','💀','👻','🔥','☀️','🌞','🦉','🛡️','⚔️','🗡️','🏹','🌙','💨','🌪️','🪶','🔨','🌋','🌹','💘','💖','🐍','🦅','🐺','🐂','🦁','🕸️','❄️','☄️','✨','💫','🌀','🍇','🪨','👁️','😤','🎵','🌿'];
+const ICONS = ['⚡','🌩️','🔱','🌊','💀','👻','🔥','☀️','🌞','🦉','🛡️','⚔️','🗡️','🏹','🌙','💨','🌪️','🪶','🔨','🌋','🌹','💘','💖','🐍','🦅','🐺','🐂','🦁','🕸️','❄️','☄️','✨','💫','🌀','🍇','🪨','👁️','😤','🎵','🌿','👑','🦚','🌾','🍷','🔮','🕯️','🌸','🌌','🏆','🪓','💍','🌑','💤','🐚'];
 const BUDGET = 100;
 const MAX_MOVES = 4;
 const STRUGGLE = { name: 'Desperate Strike', icon: '👊', kind: 'attack', element: 'divine', power: 35, acc: 100, uses: Infinity, effect: 'none', chance: 0, priority: false, desc: 'Out of power, still swinging.' };
@@ -565,14 +644,11 @@ function typeMult(moveEl, defEl) {
   if (ELEMENTS[defEl].strong.includes(moveEl)) return 0.6;
   return 1;
 }
-function divineStrike(g) {
-  return { id: 'ds-' + g.id, name: 'Divine Strike', icon: ELEMENTS[g.el].icon, kind: 'attack', element: g.el, power: 60, acc: 95, uses: 10, effect: 'none', chance: 0, priority: false, desc: 'A plain blow from an immortal arm.' };
-}
 function battleMoves(godId) {
   const mine = store.moves[godId];
   if (mine.length) return mine;
   const g = GOD[godId];
-  return [cleanMove({ ...g.starter, id: 'st-' + g.id }), divineStrike(g)];
+  return g.ideas.map((m, i) => cleanMove({ ...m, id: `idea-${g.id}-${i}` }));
 }
 
 /* ================= NAV ================= */
@@ -652,7 +728,7 @@ function renderGodPanel() {
       <span><b>Weak to:</b> ${weakTo(g.el).map(s => ELEMENTS[s].name).join(', ')}</span>
     </div>
     <div class="slots">${slots.join('')}</div>
-    ${moves.length ? '' : `<p class="hint" style="color:var(--ink);margin:0">No moves yet. As an opponent, ${g.name} uses a starter set until you forge some.</p>`}`;
+    ${moves.length ? '' : `<p class="hint" style="color:var(--ink);margin:0">No moves yet. As an opponent, ${g.name} uses ready-made moves until you forge some.</p>`}`;
 }
 $('#godtabs').addEventListener('click', e => {
   const b = e.target.closest('[data-god]');
@@ -667,8 +743,14 @@ $('#godpanel').addEventListener('click', e => {
   const existing = store.moves[g.id][slot];
   let draft;
   if (existing) draft = { ...existing };
-  else if (!store.moves[g.id].some(m => m.name === g.starter.name)) draft = cleanMove({ ...g.starter, id: newId() });
-  else draft = cleanMove({ id: newId(), name: '', icon: ELEMENTS[g.el].icon, kind: 'attack', element: g.el, power: 60, acc: 90, uses: 6, effect: 'none', chance: 30 });
+  else {
+    // Prefill with one of the god's move ideas that isn't taken yet
+    const taken = new Set(store.moves[g.id].map(m => m.name));
+    const idea = g.ideas.find(m => !taken.has(m.name));
+    const spare = [`Wrath of ${g.name}`, `Might of ${g.name}`, `Fury of ${g.name}`, `Gift of ${g.name}`, `Spirit of ${g.name}`].find(n => !taken.has(n));
+    draft = cleanMove(idea ? { ...idea, id: newId() }
+      : { id: newId(), name: spare, icon: ELEMENTS[g.el].icon, kind: 'attack', element: g.el, power: 60, acc: 90, uses: 6, effect: 'none', chance: 30 });
+  }
   editing = { slot, draft, isNew: !existing };
   renderGodPanel();
   renderEditor();
@@ -872,7 +954,7 @@ function checkSetup() {
     note.innerHTML = `${GOD[store.lastMe].name} has no moves. <button class="btn ghost" type="button" id="toforge" style="padding:4px 10px">Forge some</button>`;
     $('#startbtn').disabled = true;
   } else {
-    note.textContent = store.lastFoe === 'climb' ? `${GOD[store.lastMe].name} will face all nine other gods.` : `${GOD[store.lastMe].name} vs ${GOD[store.lastFoe].name}`;
+    note.textContent = store.lastFoe === 'climb' ? `${GOD[store.lastMe].name} will face all ${GODS.length - 1} other gods.` : `${GOD[store.lastMe].name} vs ${GOD[store.lastFoe].name}`;
     $('#startbtn').disabled = false;
   }
 }
@@ -1203,7 +1285,7 @@ async function finish() {
     title = 'Victory'; text = `${B.e.god.name} is defeated. Next up: ${GOD[B.order[B.idx + 1]].name}. Your HP and move uses are restored.`;
     buttons = `<button class="btn gold" type="button" data-res="next">Fight ${GOD[B.order[B.idx + 1]].name}</button>`;
   } else if (won && climbing) {
-    title = 'Ruler of Olympus'; text = `${B.p.god.name} defeated all nine gods. The throne is yours.`;
+    title = 'Ruler of Olympus'; text = `${B.p.god.name} defeated all ${B.order.length} gods. The throne is yours.`;
     buttons = `<button class="btn gold" type="button" data-res="again">Climb again</button>`;
   } else if (won) {
     title = 'Victory'; text = `${B.p.god.name} defeats ${B.e.god.name} with ${B.p.hp} HP to spare.`;
