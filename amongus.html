@@ -429,12 +429,23 @@ function freshEntityTasks(){
   return shuffled.map(s=>({stationId:s.id, done:false}));
 }
 
-function isAllowed(x,y){
+function pointInAnyRect(x,y){
   for(const rect of ALL_RECTS){
-    if(x - PLAYER_RADIUS >= rect.x && x + PLAYER_RADIUS <= rect.x+rect.w &&
-       y - PLAYER_RADIUS >= rect.y && y + PLAYER_RADIUS <= rect.y+rect.h) return true;
+    if(x>=rect.x && x<=rect.x+rect.w && y>=rect.y && y<=rect.y+rect.h) return true;
   }
   return false;
+}
+
+function isAllowed(x,y){
+  // Rooms and hallways only touch edge-to-edge, never overlap, so checking "is the
+  // whole player inside ONE rect" leaves a player-width dead zone at every doorway
+  // (neither rect alone covers a player straddling the seam). Instead, require the
+  // center and the four radius-offset points to each land in the union of rects —
+  // that lets a doorway crossing succeed while still blocking true outer walls.
+  const r = PLAYER_RADIUS;
+  return pointInAnyRect(x,y) &&
+         pointInAnyRect(x-r,y) && pointInAnyRect(x+r,y) &&
+         pointInAnyRect(x,y-r) && pointInAnyRect(x,y+r);
 }
 
 function whichRoom(x,y){
